@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Situation — Grand Strategy</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">Grand Strategy</span>
+  <div class="clock" id="clock">
+    <span class="turn" id="clockTurn">Turn —</span>
+    <span class="until" id="clockUntil"></span>
+  </div>
+  <nav>
+    <a href="/dashboard.html" aria-current="page">Situation</a>
+    <a href="/cities.html">Cities</a>
+    <a href="/military.html">Military</a>
+    <a href="#" id="signOut">Sign out</a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <div style="display:flex; align-items:baseline; gap:1rem; margin-bottom:1.2rem;">
+    <div>
+      <p class="eyebrow" id="leaderLine">—</p>
+      <h1 id="nationName">—</h1>
+    </div>
+    <span class="tag" id="colorTag" style="margin-left:auto"></span>
+  </div>
+
+  <div id="msg" class="msg hidden"></div>
+
+  <!-- Vitals -->
+  <section class="panel" style="margin-bottom:var(--gap-l)">
+    <div class="vitals" id="vitals"></div>
+  </section>
+
+  <div class="grid two">
+
+    <div style="display:grid; gap:var(--gap-l)">
+
+      <!-- Cities: each population number unfolds into its own arithmetic -->
+      <section class="panel">
+        <header>
+          <h2>Cities</h2>
+          <span class="eyebrow" id="cityCount"></span>
+        </header>
+        <div class="body">
+          <p class="muted" style="font-size:.78rem; margin-bottom:1rem;">
+            Tap any population figure to see exactly how it was calculated.
+          </p>
+          <div class="grid cards" id="cities"></div>
+        </div>
+      </section>
+
+      <!-- Income, also fully itemised -->
+      <section class="panel">
+        <header><h2>Treasury</h2><span class="eyebrow">per day</span></header>
+        <div class="body"><div id="treasury"></div></div>
+      </section>
+
+    </div>
+
+    <div style="display:grid; gap:var(--gap-l)">
+
+      <section class="panel">
+        <header><h2>Stockpile</h2><span class="eyebrow">per turn</span></header>
+        <div class="body"><div class="res" id="resources"></div></div>
+      </section>
+
+      <section class="panel">
+        <header><h2>Attention</h2></header>
+        <div class="body"><div id="warnings"></div></div>
+      </section>
+
+      <section class="panel">
+        <header><h2>Log</h2></header>
+        <div class="body"><ul class="log" id="log"></ul></div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/dashboard.js"></script>
+</body>
+</html>

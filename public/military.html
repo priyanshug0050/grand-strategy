@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Military — Grand Strategy</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">Grand Strategy</span>
+  <div class="clock" id="clock">
+    <span class="turn" id="clockTurn">Turn —</span>
+    <span class="until" id="clockUntil"></span>
+  </div>
+  <nav>
+    <a href="/dashboard.html">Situation</a>
+    <a href="/cities.html">Cities</a>
+    <a href="/military.html" aria-current="page">Military</a>
+    <a href="#" id="signOut">Sign out</a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <div style="display:flex; align-items:baseline; gap:1rem; margin-bottom:1.2rem;">
+    <div>
+      <p class="eyebrow">Command</p>
+      <h1>Military</h1>
+    </div>
+    <span class="eyebrow" id="mapLine" style="margin-left:auto"></span>
+  </div>
+
+  <div id="msg" class="msg hidden"></div>
+
+  <!-- Supply state comes first. An unsupplied army loses before it fights. -->
+  <section class="panel" style="margin-bottom:var(--gap-l)">
+    <header><h2>Forces</h2><span class="eyebrow" id="supplyTag"></span></header>
+    <div class="body">
+      <div class="vitals" id="forces" style="margin:-1.1rem"></div>
+    </div>
+  </section>
+
+  <div class="grid two">
+
+    <div style="display:grid; gap:var(--gap-l)">
+
+      <section class="panel">
+        <header><h2>Active wars</h2><span class="eyebrow" id="warCount"></span></header>
+        <div class="body" id="wars"></div>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2>Targets in range</h2>
+          <span class="eyebrow" id="rangeLine"></span>
+        </header>
+        <div class="body" id="targets"></div>
+      </section>
+
+    </div>
+
+    <div style="display:grid; gap:var(--gap-l)">
+
+      <section class="panel">
+        <header><h2>Recruit</h2></header>
+        <div class="body" id="recruit"></div>
+      </section>
+
+      <section class="panel">
+        <header><h2>Battle log</h2></header>
+        <div class="body"><ul class="log" id="log"></ul></div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/military.js"></script>
+</body>
+</html>

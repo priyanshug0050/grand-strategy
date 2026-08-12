@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grand Strategy</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<main class="auth">
+  <div class="card">
+
+    <p class="eyebrow">Nation Simulation</p>
+    <h1 style="color:var(--brass); letter-spacing:.1em;">Grand Strategy</h1>
+    <p class="lede">
+      Build cities, refine resources, sign treaties, and fight wars that take days
+      rather than seconds. Turns resolve every two hours whether you are watching
+      or not.
+    </p>
+
+    <div id="msg" class="msg hidden"></div>
+
+    <!-- Sign in -->
+    <section id="loginPanel" class="panel">
+      <header><h2>Sign in</h2></header>
+      <div class="body">
+        <div class="field">
+          <label for="loginEmail">Email</label>
+          <input id="loginEmail" type="email" autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="loginPassword">Password</label>
+          <input id="loginPassword" type="password" autocomplete="current-password">
+        </div>
+        <button id="loginBtn" class="primary" style="width:100%">Sign in</button>
+      </div>
+    </section>
+
+    <!-- Found a nation -->
+    <section id="registerPanel" class="panel hidden">
+      <header><h2>Found a nation</h2></header>
+      <div class="body">
+        <div class="field">
+          <label for="regNation">Nation name</label>
+          <input id="regNation" maxlength="40" placeholder="Meridia">
+        </div>
+        <div class="field">
+          <label for="regLeader">Leader name</label>
+          <input id="regLeader" maxlength="40" placeholder="Governor Sala">
+        </div>
+        <div class="field">
+          <label for="regContinent">Continent</label>
+          <select id="regContinent"></select>
+          <p class="muted" style="font-size:.72rem; margin-top:.35rem;" id="continentNote"></p>
+        </div>
+        <div class="field">
+          <label for="regEmail">Email</label>
+          <input id="regEmail" type="email" autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="regPassword">Password</label>
+          <input id="regPassword" type="password" autocomplete="new-password" placeholder="At least 8 characters">
+        </div>
+        <button id="registerBtn" class="primary" style="width:100%">Found nation</button>
+        <p class="muted" style="font-size:.74rem; margin-top:.7rem; line-height:1.5;">
+          New nations are protected from attack for 14 days. Use that time to build
+          — protection ends permanently and cannot be regained.
+        </p>
+      </div>
+    </section>
+
+    <p class="switch">
+      <span id="switchText">No nation yet?</span>
+      <button id="switchBtn">Found one</button>
+    </p>
+
+  </div>
+</main>
+
+<!-- api.js MUST load before the page script -->
+<script src="/js/api.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  if (API.isLoggedIn()) { location.href = '/dashboard.html'; return; }
+
+  const msg = document.getElementById('msg');
+  const loginPanel = document.getElementById('loginPanel');
+  const registerPanel = document.getElementById('registerPanel');
+  const switchBtn = document.getElementById('switchBtn');
+  const switchText = document.getElementById('switchText');
+  let mode = 'login';
+
+  // Continents come from the server so the list can never drift out of sync
+  // with what the engine actually accepts.
+  API.reference().then(ref => {
+    const sel = document.getElementById('regContinent');
+    sel.innerHTML = ref.continents
+      .map(c => `<option value="${c}">${Fmt.label(c)}</option>`).join('');
+    updateContinentNote(ref);
+    sel.addEventListener('change', () => updateContinentNote(ref));
+  }).catch(() => {
+    showMessage(msg, 'Cannot reach the server. Start it with npm start, then reload.');
+  });
+
+  function updateContinentNote(ref) {
+    const c = document.getElementById('regContinent').value;
+    const note = document.getElementById('continentNote');
+    note.textContent = c === 'antarctica'
+      ? 'Antarctica produces half the food. Choose it only if you plan to import.'
+      : 'Your continent decides which raw resources you can mine. No continent has them all — you will need to trade.';
+  }
+
+  switchBtn.addEventListener('click', () => {
+    mode = mode === 'login' ? 'register' : 'login';
+    clearMessage(msg);
+    loginPanel.classList.toggle('hidden', mode !== 'login');
+    registerPanel.classList.toggle('hidden', mode !== 'register');
+    switchText.textContent = mode === 'login' ? 'No nation yet?' : 'Already playing?';
+    switchBtn.textContent  = mode === 'login' ? 'Found one' : 'Sign in';
+  });
+
+  async function doLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    if (!email || !password) return showMessage(msg, 'Enter your email and password.');
+
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    try {
+      const { token } = await API.login(email, password);
+      API.setToken(token);
+      location.href = '/dashboard.html';
+    } catch (err) {
+      showMessage(msg, err.message);
+      btn.disabled = false; btn.textContent = 'Sign in';
+    }
+  }
+
+  async function doRegister() {
+    const payload = {
+      nationName:  document.getElementById('regNation').value.trim(),
+      leaderName:  document.getElementById('regLeader').value.trim(),
+      continent:   document.getElementById('regContinent').value,
+      email:       document.getElementById('regEmail').value.trim(),
+      password:    document.getElementById('regPassword').value,
+    };
+    if (!payload.nationName) return showMessage(msg, 'Your nation needs a name.');
+    if (!payload.email) return showMessage(msg, 'Enter an email address.');
+    if (payload.password.length < 8) return showMessage(msg, 'Password must be at least 8 characters.');
+
+    const btn = document.getElementById('registerBtn');
+    btn.disabled = true; btn.textContent = 'Founding…';
+    try {
+      const { token } = await API.register(payload);
+      API.setToken(token);
+      location.href = '/dashboard.html';
+    } catch (err) {
+      showMessage(msg, err.message);
+      btn.disabled = false; btn.textContent = 'Found nation';
+    }
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', doLogin);
+  document.getElementById('registerBtn').addEventListener('click', doRegister);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') mode === 'login' ? doLogin() : doRegister();
+  });
+})();
+</script>
+</body>
+</html>

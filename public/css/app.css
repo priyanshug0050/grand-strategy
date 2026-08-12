@@ -1,0 +1,369 @@
+/* ==========================================================================
+   Grand Strategy — visual system
+
+   DIRECTION: a Cold War plotting room. Low ambient light, amber phosphor
+   readouts, brass rules, chalk lettering on a status board. Alarm red is
+   reserved for things that are actually wrong — if everything is red,
+   nothing is.
+
+   THE SIGNATURE: the derivation ledger. Politics & War hides its formulas
+   entirely; players consult external wikis to understand their own cities.
+   Here, every derived number can be unfolded into the arithmetic that
+   produced it. That is the one place this interface spends its boldness,
+   and everything around it stays quiet.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+:root {
+  /* Room */
+  --void:      #0E1419;
+  --panel:     #18222B;
+  --raised:    #223039;
+  --line:      #2C3A44;
+
+  /* Materials */
+  --brass:     #A8874E;
+  --brass-dim: #6B5730;
+  --phosphor:  #F0A830;
+  --chalk:     #D6DDE2;
+  --chalk-dim: #8A97A1;
+
+  /* Signals — used sparingly and only when true */
+  --alarm:     #C4453A;
+  --verdigris: #4E8D7C;
+
+  --display: 'Saira Condensed', system-ui, sans-serif;
+  --body:    'IBM Plex Sans', system-ui, sans-serif;
+  --data:    'IBM Plex Mono', ui-monospace, monospace;
+
+  --gap:  1rem;
+  --gap-l: 1.75rem;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--void);
+  color: var(--chalk);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.55;
+  /* Faint plotting-table grid. Structural, not decorative — it reads as a
+     surface you place things on. */
+  background-image:
+    linear-gradient(rgba(168,135,78,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(168,135,78,.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  min-height: 100vh;
+}
+
+/* ---------- Type ---------- */
+
+h1, h2, h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.1rem; color: var(--brass); letter-spacing: .09em; }
+h3 { font-size: .95rem; letter-spacing: .06em; }
+
+.eyebrow {
+  font-family: var(--data);
+  font-size: .68rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+}
+
+.num { font-family: var(--data); font-variant-numeric: tabular-nums; }
+
+/* ---------- Shell ---------- */
+
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: var(--gap-l);
+  padding: .7rem 1.5rem;
+  background: rgba(14,20,25,.94);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar .brand {
+  font-family: var(--display); font-size: 1.05rem;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--brass);
+}
+.topbar nav { display: flex; gap: 1.1rem; margin-left: auto; }
+.topbar nav a {
+  font-family: var(--data); font-size: .74rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--chalk-dim);
+  text-decoration: none; padding-bottom: 2px; border-bottom: 1px solid transparent;
+}
+.topbar nav a:hover { color: var(--chalk); }
+.topbar nav a[aria-current="page"] { color: var(--phosphor); border-bottom-color: var(--phosphor); }
+
+.wrap { max-width: 1240px; margin: 0 auto; padding: var(--gap-l) 1.5rem 4rem; }
+
+/* ---------- Turn clock ---------- */
+/* The heartbeat of a turn-based game. Everything the player can do is gated
+   by it, so it sits above everything else and never scrolls away. */
+
+.clock { display: flex; align-items: baseline; gap: .55rem; }
+.clock .turn { font-family: var(--data); font-size: 1rem; color: var(--phosphor); font-weight: 600; }
+.clock .until { font-family: var(--data); font-size: .74rem; color: var(--chalk-dim); }
+.clock.imminent .until { color: var(--phosphor); }
+
+/* ---------- Panels ---------- */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--brass-dim);
+}
+.panel > header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .7rem 1.1rem;
+  border-bottom: 1px solid var(--line);
+}
+.panel > .body { padding: 1.1rem; }
+
+.grid { display: grid; gap: var(--gap); }
+.grid.two { grid-template-columns: 2fr 1fr; }
+.grid.cards { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+
+/* ---------- Vitals ---------- */
+
+.vitals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 1px; background: var(--line); }
+.vital { background: var(--panel); padding: .85rem 1rem; }
+.vital .label { font-family: var(--data); font-size: .64rem; letter-spacing: .14em; text-transform: uppercase; color: var(--chalk-dim); }
+.vital .value { font-family: var(--data); font-size: 1.35rem; font-weight: 600; margin-top: .15rem; font-variant-numeric: tabular-nums; }
+.vital .sub { font-family: var(--data); font-size: .7rem; color: var(--chalk-dim); }
+.vital .value.good { color: var(--verdigris); }
+.vital .value.bad  { color: var(--alarm); }
+.vital .value.hot  { color: var(--phosphor); }
+
+/* ==========================================================================
+   THE DERIVATION LEDGER — the signature
+   ========================================================================== */
+
+.derived {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
+  border-bottom: 1px dashed var(--brass-dim);
+}
+.derived:hover { border-bottom-style: solid; border-bottom-color: var(--phosphor); }
+.derived::after {
+  content: '?'; font-family: var(--data); font-size: .6rem;
+  vertical-align: super; margin-left: .25rem; color: var(--brass);
+}
+
+.ledger {
+  font-family: var(--data); font-size: .8rem;
+  background: var(--void); border: 1px solid var(--line);
+  border-left: 2px solid var(--phosphor);
+  padding: .85rem 1rem; margin-top: .7rem;
+}
+.ledger .row { display: flex; justify-content: space-between; gap: 1.5rem; padding: .16rem 0; }
+.ledger .row .k { color: var(--chalk-dim); }
+.ledger .row .v { font-variant-numeric: tabular-nums; }
+.ledger .row.minus .v { color: var(--alarm); }
+.ledger .row.times .v { color: var(--brass); }
+.ledger .rule { border-top: 1px solid var(--brass-dim); margin: .4rem 0; }
+.ledger .row.total { font-weight: 600; }
+.ledger .row.total .v { color: var(--phosphor); }
+.ledger .formula {
+  margin-top: .7rem; padding-top: .6rem; border-top: 1px dotted var(--line);
+  color: var(--chalk-dim); font-size: .72rem; line-height: 1.5;
+}
+
+/* ---------- Cities ---------- */
+
+.city { }
+.city .head { display: flex; align-items: baseline; justify-content: space-between; }
+.city .stats { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem 1rem; margin: .9rem 0; }
+.city .stat { display: flex; justify-content: space-between; font-family: var(--data); font-size: .8rem; }
+.city .stat .k { color: var(--chalk-dim); }
+
+/* Density bar: the single most important relationship in the game.
+   Infrastructure outrunning land is what kills new players' cities. */
+.density { margin: .8rem 0; }
+.density .track { height: 5px; background: var(--raised); position: relative; overflow: hidden; }
+.density .fill { height: 100%; background: var(--verdigris); transition: width .3s, background .3s; }
+.density.warn .fill { background: var(--phosphor); }
+.density.crit .fill { background: var(--alarm); }
+.density .caption { font-family: var(--data); font-size: .68rem; color: var(--chalk-dim); margin-top: .3rem; display: flex; justify-content: space-between; }
+
+/* ---------- City tabs ---------- */
+
+.citytabs { display: flex; gap: 1px; background: var(--line); border: 1px solid var(--line); overflow-x: auto; }
+.citytab {
+  flex: 1; min-width: 150px; background: var(--panel); border: 0;
+  border-top: 2px solid transparent; padding: .7rem .9rem; text-align: left;
+  text-transform: none; letter-spacing: 0;
+}
+.citytab .nm { display: block; font-family: var(--display); font-size: .95rem;
+               letter-spacing: .04em; text-transform: uppercase; }
+.citytab .sub { display: block; font-family: var(--data); font-size: .66rem; color: var(--chalk-dim); }
+.citytab.active { background: var(--raised); border-top-color: var(--phosphor); }
+.citytab.active .nm { color: var(--phosphor); }
+
+/* ---------- Improvement grid ---------- */
+
+/* The slot bar is the constraint every building competes for, so it sits
+   above the grid rather than being a number tucked in a corner. */
+.slotbar .track { height: 6px; background: var(--void); border: 1px solid var(--line); }
+.slotbar .fill { height: 100%; background: var(--brass); transition: width .3s; }
+.slotbar.full .fill { background: var(--phosphor); }
+.slotbar .caption {
+  display: flex; justify-content: space-between; margin-top: .35rem;
+  font-family: var(--data); font-size: .68rem; color: var(--chalk-dim);
+}
+
+button.qtypreset { padding: .5rem .7rem; min-width: 44px; }
+
+.impgroup { margin-bottom: 1.8rem; }
+.impgroup:last-child { margin-bottom: 0; }
+.impgroup-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  border-bottom: 1px solid var(--brass-dim); padding-bottom: .3rem; margin-bottom: .3rem;
+}
+.impgroup-head h3 { color: var(--brass); }
+.impgroup-head .tally { font-size: .7rem; color: var(--phosphor); }
+
+.impgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px,1fr)); gap: 1px; background: var(--line); }
+.imp { background: var(--panel); padding: .6rem .7rem; display: flex; flex-direction: column; }
+.imp.owned { background: var(--raised); border-left: 2px solid var(--brass); }
+.imp.idle { border-left-color: var(--alarm); }
+.imp-head { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; }
+.imp-head .nm { font-size: .82rem; }
+.imp-head .ct { font-size: .95rem; color: var(--chalk-dim); font-weight: 600; }
+.imp.owned .imp-head .ct { color: var(--phosphor); }
+.imp-head .lim { font-size: .68rem; color: var(--chalk-dim); font-weight: 400; }
+.imp-effect { font-family: var(--data); font-size: .66rem; color: var(--chalk); margin-top: .3rem; }
+.imp-meta { font-size: .62rem; color: var(--chalk-dim); margin: .2rem 0 .5rem; }
+.imp-warn { font-family: var(--data); font-size: .62rem; color: var(--alarm); margin-bottom: .4rem; }
+.imp-actions { display: flex; gap: .3rem; margin-top: auto; }
+.imp-actions button { flex: 1; padding: .3rem; font-size: .66rem; }
+
+/* ---------- Wars ---------- */
+
+.war { border: 1px solid var(--line); border-left: 2px solid var(--brass); padding: .9rem 1rem; margin-bottom: .9rem; }
+.war:last-child { margin-bottom: 0; }
+.war-head { display: flex; justify-content: space-between; align-items: flex-start; }
+
+.resist { margin: .8rem 0; display: grid; gap: .45rem; }
+.resist .r { display: grid; grid-template-columns: 110px 1fr 44px; align-items: center; gap: .6rem; }
+.resist .k { font-family: var(--data); font-size: .68rem; color: var(--chalk-dim); }
+.resist .v { font-family: var(--data); font-size: .74rem; text-align: right; }
+.resist .track { height: 5px; background: var(--void); border: 1px solid var(--line); }
+.resist .fill { height: 100%; }
+.resist .fill.them { background: var(--alarm); }
+.resist .fill.mine { background: var(--verdigris); }
+
+.attack-buttons { display: flex; gap: .4rem; flex-wrap: wrap; }
+.attack-buttons button { flex: 1; min-width: 120px; }
+
+/* ---------- Targets ---------- */
+
+table.targets { width: 100%; border-collapse: collapse; font-size: .8rem; }
+table.targets th {
+  font-family: var(--data); font-size: .62rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--chalk-dim); text-align: left;
+  padding: .4rem .5rem; border-bottom: 1px solid var(--brass-dim);
+}
+table.targets td { padding: .5rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.targets td.num { font-family: var(--data); font-variant-numeric: tabular-nums; }
+table.targets tr.blocked td { opacity: .5; }
+table.targets select { width: auto; display: inline-block; margin-right: .3rem; padding: .3rem; }
+table.targets button { padding: .3rem .6rem; }
+
+/* ---------- Recruit ---------- */
+
+.recruit-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .7rem 0; border-bottom: 1px solid var(--line);
+}
+.recruit-row:last-child { border-bottom: 0; }
+.recruit-row .nm { font-family: var(--display); font-size: .95rem; letter-spacing: .04em; text-transform: uppercase; }
+.recruit-row .meta { font-size: .66rem; color: var(--chalk-dim); }
+
+/* ---------- Resources ---------- */
+
+.res { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px,1fr)); gap: 1px; background: var(--line); }
+.res .r { background: var(--panel); padding: .5rem .65rem; }
+.res .r .n { font-family: var(--data); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: var(--chalk-dim); }
+.res .r .a { font-family: var(--data); font-size: .95rem; font-variant-numeric: tabular-nums; }
+.res .r .d { font-family: var(--data); font-size: .66rem; }
+.res .r .d.pos { color: var(--verdigris); }
+.res .r .d.neg { color: var(--alarm); }
+
+/* ---------- Controls ---------- */
+
+button, .btn {
+  font-family: var(--data); font-size: .74rem; letter-spacing: .1em;
+  text-transform: uppercase; font-weight: 500;
+  background: var(--raised); color: var(--chalk);
+  border: 1px solid var(--line); padding: .5rem .9rem;
+  cursor: pointer; transition: border-color .15s, color .15s;
+}
+button:hover:not(:disabled) { border-color: var(--brass); color: var(--phosphor); }
+button:disabled { opacity: .4; cursor: not-allowed; }
+button.primary { background: var(--brass-dim); border-color: var(--brass); color: #F5EEDC; }
+button.primary:hover:not(:disabled) { background: var(--brass); color: var(--void); }
+
+input, select {
+  font-family: var(--data); font-size: .85rem;
+  background: var(--void); color: var(--chalk);
+  border: 1px solid var(--line); padding: .5rem .65rem; width: 100%;
+}
+input:focus, select:focus, button:focus-visible, .derived:focus-visible {
+  outline: 2px solid var(--phosphor); outline-offset: 2px;
+}
+label { display: block; font-family: var(--data); font-size: .66rem; letter-spacing: .12em;
+        text-transform: uppercase; color: var(--chalk-dim); margin-bottom: .3rem; }
+.field { margin-bottom: .85rem; }
+.row-controls { display: flex; gap: .5rem; align-items: flex-end; }
+.row-controls .field { flex: 1; margin-bottom: 0; }
+
+/* ---------- Messages ---------- */
+/* Errors state what happened and what to do. They do not apologise. */
+
+.msg { font-family: var(--data); font-size: .78rem; padding: .6rem .8rem; border-left: 2px solid; margin: .8rem 0; }
+.msg.error { border-color: var(--alarm); background: rgba(196,69,58,.09); color: #E9A49E; }
+.msg.ok    { border-color: var(--verdigris); background: rgba(78,141,124,.09); color: #9CCFC1; }
+.msg.warn  { border-color: var(--phosphor); background: rgba(240,168,48,.08); color: #EDC583; }
+
+.tag { font-family: var(--data); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase;
+       padding: .12rem .45rem; border: 1px solid var(--line); color: var(--chalk-dim); }
+.tag.beige { border-color: var(--brass); color: var(--brass); }
+.tag.alarm { border-color: var(--alarm); color: var(--alarm); }
+
+/* ---------- Log ---------- */
+
+.log { font-family: var(--data); font-size: .76rem; }
+.log li { list-style: none; padding: .5rem 0; border-bottom: 1px solid var(--line); display: flex; gap: .8rem; }
+.log li:last-child { border-bottom: 0; }
+.log .t { color: var(--brass); white-space: nowrap; }
+
+/* ---------- Auth ---------- */
+
+.auth { min-height: 100vh; display: grid; place-items: center; padding: 2rem 1.5rem; }
+.auth .card { width: 100%; max-width: 420px; }
+.auth .lede { color: var(--chalk-dim); font-size: .88rem; margin: .4rem 0 1.4rem; }
+.auth .switch { text-align: center; margin-top: 1rem; font-family: var(--data); font-size: .74rem; }
+.auth .switch button { background: none; border: 0; color: var(--phosphor); padding: 0; text-transform: none; letter-spacing: 0; }
+
+.hidden { display: none !important; }
+.muted { color: var(--chalk-dim); }
+.empty { font-family: var(--data); font-size: .8rem; color: var(--chalk-dim); padding: 1.4rem 0; text-align: center; }
+
+@media (max-width: 860px) {
+  .grid.two { grid-template-columns: 1fr; }
+  .topbar { flex-wrap: wrap; gap: .7rem; }
+  .topbar nav { width: 100%; margin-left: 0; overflow-x: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

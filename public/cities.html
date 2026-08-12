@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cities — Grand Strategy</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">Grand Strategy</span>
+  <div class="clock" id="clock">
+    <span class="turn" id="clockTurn">Turn —</span>
+    <span class="until" id="clockUntil"></span>
+  </div>
+  <nav>
+    <a href="/dashboard.html">Situation</a>
+    <a href="/cities.html" aria-current="page">Cities</a>
+    <a href="/military.html">Military</a>
+    <a href="#" id="signOut">Sign out</a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <div style="display:flex; align-items:baseline; gap:1rem; margin-bottom:1.2rem;">
+    <div>
+      <p class="eyebrow">Development</p>
+      <h1>Cities</h1>
+    </div>
+    <span class="eyebrow" id="treasuryLine" style="margin-left:auto"></span>
+  </div>
+
+  <div id="msg" class="msg hidden"></div>
+
+  <!-- City selector -->
+  <div class="citytabs" id="cityTabs"></div>
+
+  <div class="grid two" style="margin-top:var(--gap-l)">
+
+    <div style="display:grid; gap:var(--gap-l)">
+
+      <!-- Land & infrastructure, with consequences shown BEFORE you commit -->
+      <section class="panel">
+        <header>
+          <h2>Development</h2>
+          <span class="eyebrow" id="slotLine"></span>
+        </header>
+        <div class="body">
+          <div class="density" id="densityWrap">
+            <div class="track"><div class="fill" id="densityFill"></div></div>
+            <div class="caption">
+              <span id="densityText">—</span>
+              <span id="densityVerdict"></span>
+            </div>
+          </div>
+
+          <div class="row-controls" style="margin-top:1.1rem">
+            <div class="field">
+              <label for="infraInput">Infrastructure</label>
+              <input id="infraInput" type="number" min="0" step="100">
+            </div>
+            <div class="field">
+              <label for="landInput">Land</label>
+              <input id="landInput" type="number" min="0" step="500">
+            </div>
+          </div>
+
+          <!-- The signature, applied to a decision instead of a status -->
+          <div class="ledger" id="preview">
+            <div class="row"><span class="k">enter a target above</span><span class="v">—</span></div>
+          </div>
+
+          <button id="buyBtn" class="primary" style="width:100%; margin-top:.8rem" disabled>Purchase</button>
+        </div>
+      </section>
+
+      <!-- Improvements -->
+      <section class="panel">
+        <header>
+          <h2>Improvements</h2>
+          <span class="eyebrow" id="powerLine"></span>
+        </header>
+        <div class="body" id="improvements"></div>
+      </section>
+
+    </div>
+
+    <div style="display:grid; gap:var(--gap-l)">
+
+      <section class="panel">
+        <header><h2>This city</h2></header>
+        <div class="body"><div id="cityStats"></div></div>
+      </section>
+
+      <section class="panel">
+        <header><h2>Found a city</h2></header>
+        <div class="body">
+          <div class="field">
+            <label for="newCityName">Name</label>
+            <input id="newCityName" maxlength="40" placeholder="Second City">
+          </div>
+          <div class="field">
+            <label for="newCityContinent">Continent</label>
+            <select id="newCityContinent"></select>
+          </div>
+          <button id="foundBtn" style="width:100%">Found — <span id="foundCost">…</span></button>
+          <p class="muted" style="font-size:.72rem; margin-top:.6rem; line-height:1.5;" id="foundNote"></p>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/cities.js"></script>
+</body>
+</html>
