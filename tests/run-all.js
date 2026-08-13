@@ -8,7 +8,7 @@ const { execFileSync } = require('child_process');
 const path = require('path');
 
 const ENGINE = ['city','population','economy','military','combat','policy','tick'];
-const DB = ['persistence','api','frontend'];
+const DB = ['persistence','api','admin','frontend'];
 
 let failed = 0;
 function run(name) {

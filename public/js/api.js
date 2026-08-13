@@ -124,6 +124,28 @@ const API = (() => {
     previewPolicy: (slot, policy) =>
       request('/api/policy/preview', { method: 'POST', body: { slot, policy } }),
     setPolicy: (slot, policy) => request('/api/policy', { method: 'POST', body: { slot, policy } }),
+
+    // ---- Admin ----
+    // These return 404 for anyone the DATABASE does not list as an admin. The
+    // client cannot grant itself anything by calling them.
+    adminWhoami: () => request('/api/admin/whoami'),
+    adminNations: (q) => request('/api/admin/nations' + (q ? `?q=${encodeURIComponent(q)}` : '')),
+    adminInspect: (id) => request(`/api/admin/nation/${id}`),
+    adminLinks: () => request('/api/admin/suspected-links'),
+    adminFlaggedTrades: () => request('/api/admin/flagged-trades'),
+    adminLog: (limit = 100) => request(`/api/admin/log?limit=${limit}`),
+    adminSetMoney: (id, amount, reason) =>
+      request(`/api/admin/nation/${id}/money`, { method: 'POST', body: { amount, reason } }),
+    adminSetResource: (id, resource, amount, reason) =>
+      request(`/api/admin/nation/${id}/resource`, { method: 'POST', body: { resource, amount, reason } }),
+    adminGrant: (id, grant, reason) =>
+      request(`/api/admin/nation/${id}/grant`, { method: 'POST', body: { grant, reason } }),
+    adminSetBeige: (id, turns, reason) =>
+      request(`/api/admin/nation/${id}/beige`, { method: 'POST', body: { turns, reason } }),
+    adminEndWar: (id, reason) =>
+      request(`/api/admin/war/${id}/end`, { method: 'POST', body: { reason } }),
+    adminBan: (id, banned, reason) =>
+      request(`/api/admin/user/${id}/ban`, { method: 'POST', body: { banned, reason } }),
   };
 })();
 

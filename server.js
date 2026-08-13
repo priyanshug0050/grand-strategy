@@ -191,6 +191,16 @@ const touchActivity = wrap(async (req, res, next) => {
   next();
 });
 
+// ---- Admin (a separable module — see src/admin/) ----------------------------
+//
+// Every route inside is gated on the DATABASE saying you are an admin, checked
+// per request, and returns 404 rather than 403 to anyone who is not. There is
+// no endpoint that grants admin — that happens only via direct SQL.
+//
+// Comment these two lines out and the admin surface disappears entirely.
+const adminRoutes = require('./src/admin/routes');
+app.use(adminRoutes.mount({ verifyToken: auth.verifyToken, wrap, db }));
+
 // ---- Market (a separable module — see src/market/) --------------------------
 //
 // Two lines mount the entire exchange. Comment them out and the market is

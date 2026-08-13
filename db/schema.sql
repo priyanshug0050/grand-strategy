@@ -454,3 +454,51 @@ ALTER TABLE nations ADD COLUMN IF NOT EXISTS military_policy TEXT;
 ALTER TABLE nations ADD COLUMN IF NOT EXISTS economic_policy_turn BIGINT;
 ALTER TABLE nations ADD COLUMN IF NOT EXISTS social_policy_turn BIGINT;
 ALTER TABLE nations ADD COLUMN IF NOT EXISTS military_policy_turn BIGINT;
+
+-- ============================================================================
+-- ADMIN (migration)
+-- ============================================================================
+-- Admin status lives in the DATABASE, never in a token.
+--
+-- A JWT is signed but not encrypted, and it survives for its full lifetime —
+-- so an `isAdmin` claim inside one would keep working for days after you
+-- revoked it, and anyone holding the token could read that admin accounts
+-- exist. Checking the database on every request costs one query and removes
+-- both problems.
+--
+-- There is deliberately NO endpoint that grants this. The only way to become
+-- an admin is a direct SQL statement against the database:
+--
+--     UPDATE users SET is_admin = TRUE WHERE email = 'you@example.com';
+--
+-- An API that can promote someone is an API that can be tricked into
+-- promoting someone.
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Every admin action is recorded, and the record cannot be edited or deleted
+-- from inside the application.
+--
+-- Two reasons. If a player ever claims the admin cheated, this is the answer.
+-- And if the admin account is ever compromised, this is how you find out what
+-- was done. Without it, an admin panel and a duping exploit look identical
+-- after the fact.
+CREATE TABLE IF NOT EXISTS admin_log (
+  id           BIGSERIAL PRIMARY KEY,
+  admin_id     BIGINT NOT NULL REFERENCES users(id),
+  admin_email  TEXT NOT NULL,
+  action       TEXT NOT NULL,
+  target_type  TEXT,
+  target_id    BIGINT,
+  target_name  TEXT,
+  before_value JSONB,
+  after_value  JSONB,
+  reason       TEXT,
+  ip_hash      TEXT,
+  turn         BIGINT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_log_time ON admin_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_log_admin ON admin_log(admin_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_log_target ON admin_log(target_type, target_id);

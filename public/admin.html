@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin — Grand Strategy</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">Grand Strategy</span>
+  <span class="tag alarm" style="margin-left:.6rem">ADMIN</span>
+  <nav>
+    <a href="/dashboard.html">Back to game</a>
+    <a href="#" id="signOut">Sign out</a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <!-- Shown while the server decides whether you are an admin. Everything
+       below stays hidden until it says yes. -->
+  <div id="gate">
+    <p class="empty">Checking…</p>
+  </div>
+
+  <div id="panel" class="hidden">
+
+    <div style="display:flex; align-items:baseline; gap:1rem; margin-bottom:1.2rem;">
+      <div>
+        <p class="eyebrow">Administration</p>
+        <h1>Admin panel</h1>
+      </div>
+      <span class="eyebrow" id="whoami" style="margin-left:auto"></span>
+    </div>
+
+    <div class="msg warn">
+      Every action here is recorded permanently with your email, a timestamp and
+      the reason you give. The log cannot be edited or deleted from inside the
+      application — that is what makes it worth anything.
+    </div>
+
+    <div id="msg" class="msg hidden"></div>
+
+    <div class="admin-tabs">
+      <button data-tab="nations" class="active">Nations</button>
+      <button data-tab="integrity">Integrity</button>
+      <button data-tab="log">Audit log</button>
+    </div>
+
+    <!-- Nations -->
+    <section id="tab-nations" class="admin-tab">
+      <div class="row-controls" style="margin:1rem 0">
+        <div class="field">
+          <label for="search">Search by nation name or email</label>
+          <input id="search" placeholder="Meridia">
+        </div>
+        <button id="searchBtn">Search</button>
+      </div>
+      <div id="nations"></div>
+      <div id="inspector"></div>
+    </section>
+
+    <!-- Integrity -->
+    <section id="tab-integrity" class="admin-tab hidden">
+      <section class="panel" style="margin:1rem 0">
+        <header>
+          <h2>Shared connections</h2>
+          <span class="eyebrow">flagged for review, never auto-punished</span>
+        </header>
+        <div class="body">
+          <p class="muted" style="font-size:.75rem; margin-bottom:.8rem;">
+            These accounts share an IP but not a device. A household, a campus
+            or an office looks exactly like alt-farming from here — read the
+            pattern, not the row.
+          </p>
+          <div id="links"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2>Unusual trades</h2>
+          <span class="eyebrow">far from the rolling median</span>
+        </header>
+        <div class="body">
+          <p class="muted" style="font-size:.75rem; margin-bottom:.8rem;">
+            A panic sale during a war looks identical to a wash trade. Check
+            whether the same pair keeps appearing.
+          </p>
+          <div id="trades"></div>
+        </div>
+      </section>
+    </section>
+
+    <!-- Audit log -->
+    <section id="tab-log" class="admin-tab hidden">
+      <section class="panel" style="margin-top:1rem">
+        <header><h2>Everything an admin has ever done</h2></header>
+        <div class="body"><div id="log"></div></div>
+      </section>
+    </section>
+
+  </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

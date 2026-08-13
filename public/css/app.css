@@ -256,6 +256,34 @@ button.qtypreset { padding: .5rem .7rem; min-width: 44px; }
 .imp-actions { display: flex; gap: .3rem; margin-top: auto; }
 .imp-actions button { flex: 1; padding: .3rem; font-size: .66rem; }
 
+/* ---------- Admin ---------- */
+
+.admin-tabs { display: flex; gap: 1px; background: var(--line); border: 1px solid var(--line); margin: 1rem 0; }
+.admin-tabs button { flex: 1; border: 0; border-top: 2px solid transparent; }
+.admin-tabs button.active { background: var(--raised); border-top-color: var(--alarm); color: var(--alarm); }
+
+.admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.admin-grid h3 { color: var(--brass); margin-bottom: .4rem; }
+
+.admin-res-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 1px; background: var(--line); }
+.admin-res {
+  background: var(--panel); padding: .45rem .6rem;
+  display: grid; grid-template-columns: 1fr auto; gap: .3rem; align-items: center;
+}
+.admin-res .k { font-family: var(--data); font-size: .64rem; letter-spacing: .1em;
+                text-transform: uppercase; color: var(--chalk-dim); grid-column: 1 / -1; }
+.admin-res .num { font-family: var(--data); font-size: .82rem; }
+.admin-res button { padding: .18rem .45rem; font-size: .6rem; }
+
+.admin-war {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .5rem .7rem; border: 1px solid var(--line); margin-bottom: .4rem;
+  font-family: var(--data); font-size: .76rem;
+}
+.tag.alarm { border-color: var(--alarm); color: var(--alarm); }
+
+@media (max-width: 700px) { .admin-grid { grid-template-columns: 1fr; } }
+
 /* ---------- Policy ---------- */
 
 /* Gain on the left, cost on the right — the tradeoff read in one glance. */
