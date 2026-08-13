@@ -34,6 +34,7 @@
 'use strict';
 
 const C = require('./constants');
+const policy = require('./policy');
 
 // ============================================================================
 // HELPERS
@@ -58,6 +59,18 @@ function clamp(n, min, max) {
 function countImprovement(city, key) {
   if (!city.improvements) return 0;
   return city.improvements[key] || 0;
+}
+
+/** One policy coefficient — see the identical helper in city.js. */
+function policyEffect(opts, key, neutral) {
+  if (opts.policyEffects) return opts.policyEffects[key] ?? neutral;
+  if (!opts.policies) return neutral;
+  let amplification = 0;
+  for (const p of (opts.projects || [])) {
+    const bonus = C.PROJECTS[p]?.effect?.domesticPolicyBonus;
+    if (bonus) amplification += bonus;
+  }
+  return policy.policyEffects(opts.policies, { amplification }).effects[key] ?? neutral;
 }
 
 // ============================================================================
@@ -150,6 +163,11 @@ function diseaseRatePercent(city, opts = {}) {
     percent -= P.DISEASE_HOSPITAL_REDUCTION;   // PLACEHOLDER magnitude
   }
 
+  // Policies add or subtract percentage POINTS, not a multiplier — a policy
+  // that halved a 0.5% rate would be worthless, while −1.5 points is felt at
+  // every city size.
+  percent += policyEffect(opts, 'diseaseFlat', 0);
+
   return percent;
 }
 
@@ -227,7 +245,9 @@ function crimeRatePercent(city, opts = {}) {
   const commerceTerm = Math.pow(P.CRIME_COMMERCE_CEILING - commerce, 2);
   const popTerm = base * P.CRIME_POP_COEFF;
 
-  return ((commerceTerm + popTerm) / P.CRIME_DIVISOR) - (police * P.CRIME_POLICE_REDUCTION);
+  return ((commerceTerm + popTerm) / P.CRIME_DIVISOR)
+       - (police * P.CRIME_POLICE_REDUCTION)
+       + policyEffect(opts, 'crimeFlat', 0);
 }
 
 function crimeRate(city, opts = {}) {
@@ -254,10 +274,14 @@ function peopleKilledByCrime(city, opts = {}) {
  *
  * ln(0) is -Infinity, so ages below 1 day are floored at 1 (multiplier 1.0).
  */
-function ageMultiplier(cityAgeDays) {
+function ageMultiplier(cityAgeDays, opts = {}) {
   assertNonNegative(cityAgeDays, 'cityAgeDays');
   const days = Math.max(cityAgeDays, 1);
-  return 1 + Math.log(days) / C.POPULATION.AGE_LOG_DIVISOR;
+  const base = 1 + Math.log(days) / C.POPULATION.AGE_LOG_DIVISOR;
+  // Amplify the BONUS, not the whole multiplier: +8% on a x1.30 bonus means
+  // x1.324, not x1.404.
+  const boost = policyEffect(opts, 'ageBonusMultiplier', 1);
+  return 1 + (base - 1) * boost;
 }
 
 // ============================================================================
@@ -305,7 +329,7 @@ function populationBreakdown(city, opts = {}) {
   const crimeDeathsRaw = crimeFrac * base;
   const crimeDeaths = crimeDeathsRaw * P.CRIME_DEATH_WEIGHT;
 
-  const ageMult = ageMultiplier(cityAgeDays);
+  const ageMult = ageMultiplier(cityAgeDays, opts);
 
   const surviving = base - diseaseDeaths - crimeDeaths;
   const population = Math.max(surviving * ageMult, P.MIN_POPULATION);

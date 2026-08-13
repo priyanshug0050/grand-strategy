@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Economy — Grand Strategy</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">Grand Strategy</span>
+  <div class="clock" id="clock">
+    <span class="turn" id="clockTurn">Turn —</span>
+    <span class="until" id="clockUntil"></span>
+  </div>
+  <nav>
+    <a href="/dashboard.html">Situation</a>
+    <a href="/cities.html">Cities</a>
+    <a href="/economy.html" aria-current="page">Economy</a>
+    <a href="/policy.html">Policy</a>
+    <a href="/market.html">Market</a>
+    <a href="/military.html">Military</a>
+    <a href="#" id="signOut">Sign out</a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <div style="display:flex; align-items:baseline; gap:1rem; margin-bottom:1.2rem;">
+    <div>
+      <p class="eyebrow">Ledger</p>
+      <h1>Economy</h1>
+    </div>
+    <span class="eyebrow" id="treasuryLine" style="margin-left:auto"></span>
+  </div>
+
+  <div id="msg" class="msg hidden"></div>
+
+  <!-- Anything actively going wrong, before the detail -->
+  <div id="alerts"></div>
+
+  <!-- Cash: gross to net, every deduction named -->
+  <section class="panel" style="margin-bottom:var(--gap-l)">
+    <header><h2>Cash flow</h2><span class="eyebrow">per day</span></header>
+    <div class="body"><div id="cash"></div></div>
+  </section>
+
+  <!-- Resource runway: the number that actually matters -->
+  <section class="panel" style="margin-bottom:var(--gap-l)">
+    <header>
+      <h2>Resource flow</h2>
+      <span class="eyebrow">produced · consumed · runway</span>
+    </header>
+    <div class="body"><div id="flow"></div></div>
+  </section>
+
+  <div class="grid two">
+
+    <div style="display:grid; gap:var(--gap-l)">
+
+      <!-- The attribution table — P&W has nothing like this -->
+      <section class="panel">
+        <header>
+          <h2>Where it comes from</h2>
+          <span class="eyebrow">every building, itemised</span>
+        </header>
+        <div class="body"><div id="byImprovement"></div></div>
+      </section>
+
+    </div>
+
+    <div style="display:grid; gap:var(--gap-l)">
+
+      <section class="panel">
+        <header><h2>Food</h2><span class="eyebrow">who eats what</span></header>
+        <div class="body"><div id="food"></div></div>
+      </section>
+
+      <section class="panel">
+        <header><h2>By city</h2></header>
+        <div class="body"><div id="perCity"></div></div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/economy.js"></script>
+</body>
+</html>

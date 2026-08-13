@@ -156,6 +156,8 @@
     // why every count showed 0 and every minus button was disabled.
     const counts = c.improvements || {};
     const free = c.improvementSlots - c.usedSlots;
+    const stock = state.nation.stockpile || {};
+    const money = state.nation.money;
 
     const byCat = {};
     for (const [key, def] of Object.entries(ref.improvements)) {
@@ -206,6 +208,22 @@
             if (atLimit) blockReason = `limit ${limit} reached`;
             else if (free < 1) blockReason = 'no free slots';
 
+            // Materials are the new constraint. Show what is needed AND
+            // whether you have it, per resource — "short 40 steel" is
+            // actionable, a greyed-out button is not.
+            const mats = def.materials || {};
+            const matEntries = Object.entries(mats);
+            const shortOf = matEntries.filter(([r, v]) => (stock[r] || 0) < v);
+            const cantAfford = shortOf.length > 0 || money < def.cost;
+
+            const matLine = matEntries.length
+              ? matEntries.map(([r, v]) => {
+                  const have = stock[r] || 0;
+                  const ok = have >= v;
+                  return `<span class="mat ${ok ? '' : 'short'}">${v} ${r}</span>`;
+                }).join('')
+              : '<span class="mat none">no materials</span>';
+
             return `
             <div class="imp ${have > 0 ? 'owned' : ''} ${needsPower && have > 0 ? 'idle' : ''}">
               <div class="imp-head">
@@ -213,12 +231,15 @@
                 <span class="ct num">${have}${limit !== undefined ? `<span class="lim">/${limit}</span>` : ''}</span>
               </div>
               <div class="imp-effect">${effectLine(key, def)}</div>
+              <div class="imp-mats">${matLine}</div>
               <div class="imp-meta num">
                 ${Fmt.money(def.cost)}${def.upkeep ? ` · −${Fmt.money(def.upkeep)}/d` : ''}${def.pollution ? ` · +${def.pollution} poll` : ''}
               </div>
               ${needsPower && have > 0 ? '<div class="imp-warn">idle — no power</div>' : ''}
+              ${shortOf.length ? `<div class="imp-warn">short ${shortOf.map(([r, v]) =>
+                `${Fmt.dec(v - (stock[r] || 0), 0)} ${r}`).join(', ')}</div>` : ''}
               <div class="imp-actions">
-                <button data-build="${key}" ${atLimit || free < 1 ? 'disabled' : ''}
+                <button data-build="${key}" ${atLimit || free < 1 || cantAfford ? 'disabled' : ''}
                         title="${blockReason}">Build</button>
                 <button data-demolish="${key}" ${have < 1 ? 'disabled' : ''}>Demolish</button>
               </div>
@@ -251,9 +272,18 @@
     try {
       clearMessage(msg);
       const r = await API.build(activeCityId, key, count);
-      showMessage(msg, count > 0
-        ? `Built ${count} × ${Fmt.label(key)} for ${Fmt.money(r.cost)}. You now have ${r.total}.`
-        : `Demolished ${-count} × ${Fmt.label(key)}. ${r.total} remain — no refund.`, 'ok');
+
+      if (count > 0) {
+        const mats = Object.entries(r.materials || {})
+          .map(([res, v]) => `${Fmt.dec(v,0)} ${res}`).join(' + ');
+        showMessage(msg, `Built ${count} × ${Fmt.label(key)} for ${Fmt.money(r.cost)}` +
+          (mats ? ` and ${mats}` : '') + `. You now have ${r.total}.`, 'ok');
+      } else {
+        const salvage = Object.entries(r.salvage || {})
+          .map(([res, v]) => `${Fmt.dec(v,0)} ${res}`).join(' + ');
+        showMessage(msg, `Demolished ${-count} × ${Fmt.label(key)}. ${r.total} remain — ` +
+          (salvage ? `salvaged ${salvage}, no money back.` : 'no refund.'), 'ok');
+      }
       await load();
     } catch (err) {
       showMessage(msg, err.message);

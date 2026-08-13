@@ -50,7 +50,13 @@ const eff = mod.aggregateProjectEffects(['ironworks','mass_irrigation','center_f
 t('production bonuses collected', () => approx(eff.productionBonus.steel, 0.36, 1e-9));
 t('infra cost multiplier applied', () => approx(eff.infraCostMultiplier, 0.95, 1e-9));
 t('city discounts summed', () => eq(eff.cityCostDiscount, 50000000));
-t('mass irrigation improves farm divisor', () => eq(eff.farmLandDivisor, 400));
+
+t('mass irrigation improves farm divisor', () => {
+  eq(eff.farmLandDivisor, C.FARM.LAND_DIVISOR_IRRIGATED);
+  if (!(C.FARM.LAND_DIVISOR_IRRIGATED < C.FARM.LAND_DIVISOR_PER_TURN)) {
+    throw new Error('irrigated divisor must be smaller than normal');
+  }
+});
 t('pirate economy adds war slot', () => eq(eff.offensiveWarSlots, 6));
 t('unknown projects flagged not crashed', () => {
   const e = mod.aggregateProjectEffects(['ironworks','death_ray']);

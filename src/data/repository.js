@@ -90,7 +90,20 @@ async function loadNation(tx, nationId, opts = {}) {
     spies: Number(n.spies),
 
     color: n.color,
-    policies: { domestic: n.domestic_policy, war: n.war_policy },
+    // Three slots, each independently cooled down. The old domestic/war pair
+    // is kept alongside so nothing that still reads it breaks mid-migration.
+    policies: {
+      economic: n.economic_policy || null,
+      social: n.social_policy || null,
+      military: n.military_policy || null,
+      domestic: n.domestic_policy,
+      war: n.war_policy,
+    },
+    policyTurns: {
+      economic: n.economic_policy_turn !== null ? Number(n.economic_policy_turn) : null,
+      social: n.social_policy_turn !== null ? Number(n.social_policy_turn) : null,
+      military: n.military_policy_turn !== null ? Number(n.military_policy_turn) : null,
+    },
 
     allianceId: n.alliance_id ? Number(n.alliance_id) : null,
     allianceColor: alliance.rows[0] ? alliance.rows[0].color : null,

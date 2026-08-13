@@ -436,3 +436,21 @@ FROM nations n
 LEFT JOIN cities c ON c.nation_id = n.id
 WHERE n.is_deleted = FALSE
 GROUP BY n.id;
+
+-- ============================================================================
+-- POLICY SLOTS (migration)
+-- ============================================================================
+-- The original two columns (domestic_policy, war_policy) modelled P&W's system:
+-- one domestic choice and one war choice. This game runs THREE slots — one
+-- economic, one social, one military — each with its own cooldown.
+--
+-- Added as new columns rather than renaming, so an existing database can be
+-- migrated by running just this block.
+
+ALTER TABLE nations ADD COLUMN IF NOT EXISTS economic_policy TEXT;
+ALTER TABLE nations ADD COLUMN IF NOT EXISTS social_policy TEXT;
+ALTER TABLE nations ADD COLUMN IF NOT EXISTS military_policy TEXT;
+
+ALTER TABLE nations ADD COLUMN IF NOT EXISTS economic_policy_turn BIGINT;
+ALTER TABLE nations ADD COLUMN IF NOT EXISTS social_policy_turn BIGINT;
+ALTER TABLE nations ADD COLUMN IF NOT EXISTS military_policy_turn BIGINT;

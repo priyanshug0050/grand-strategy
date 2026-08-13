@@ -314,6 +314,444 @@ async function cleanup() {
     if (!r.body.recipes.steel.inputs) throw new Error('recipe inputs missing');
   });
 
+  console.log('\n-- Economy ledger --');
+
+  await t('economy.html loads', async () => {
+    const r = await get('/economy.html');
+    eq(r.status, 200);
+    has(r.body, 'Where it comes from', 'economy.html');
+  });
+
+  await t('economy.js loads and comes AFTER api.js', async () => {
+    const r = await get('/js/economy.js');
+    eq(r.status, 200);
+    has(r.body, 'renderByImprovement', 'economy.js');
+    const page = await get('/economy.html');
+    if (page.body.indexOf('/js/api.js') > page.body.indexOf('/js/economy.js')) {
+      throw new Error('api.js loads after economy.js');
+    }
+  });
+
+  await t('every page links to the economy ledger', async () => {
+    for (const p of ['/dashboard.html','/cities.html','/military.html','/market.html']) {
+      const r = await get(p);
+      if (!r.body.includes('economy.html')) throw new Error(`${p} has no Economy nav link`);
+    }
+  });
+
+  await t('ledger returns every section the page renders', async () => {
+    const r = await get('/api/economy', token);
+    eq(r.status, 200);
+    for (const k of ['turn','money','totalPopulation','cash','food','flow','byImprovement','perCity']) {
+      if (r.body[k] === undefined) throw new Error(`economy.${k} missing`);
+    }
+    for (const k of ['grossIncomePerDay','improvementUpkeepPerDay','unitUpkeepPerDay','netIncomePerDay','outOfFood']) {
+      if (r.body.cash[k] === undefined) throw new Error(`cash.${k} missing`);
+    }
+  });
+
+  await t('RUNWAY: a deficit reports turns remaining, not just a rate', async () => {
+    const r = await get('/api/economy', token);
+    const food = r.body.flow.food;
+    for (const k of ['stockpile','producedPerTurn','consumedPerTurn','netPerTurn','turnsRemaining']) {
+      if (food[k] === undefined) throw new Error(`flow.food.${k} missing`);
+    }
+    // A new nation eats food and grows none, so it must have a finite runway.
+    if (food.netPerTurn >= 0) throw new Error('new nation should be running a food deficit');
+    if (food.turnsRemaining === null) throw new Error('deficit with stock must report a runway');
+    if (!(food.turnsRemaining > 0)) throw new Error('runway should be positive');
+  });
+
+  await t('ATTRIBUTION: production traces to the building that made it', async () => {
+    const snap = await get('/api/nation', token);
+    const cityId = snap.body.perCity[0].id;
+    const post = (body) => fetch(BASE + `/api/city/${cityId}/improvements`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify(body),
+    }).then(r => r.json());
+
+    // Earlier tests may already have built some, so compare against the
+    // count the snapshot reports rather than assuming a fresh city.
+    await post({ improvement: 'coal_mine', count: 2 });
+
+    const after = await get('/api/nation', token);
+    const expected = after.body.perCity.find(c => c.id === cityId).improvements.coal_mine;
+
+    const r = await get('/api/economy', token);
+    const mine = r.body.byImprovement.find(l => l.key === 'coal_mine');
+    if (!mine) throw new Error('coal_mine missing from attribution table');
+    if (!(mine.produces.coal > 0)) throw new Error('coal_mine shows no coal production');
+    if (mine.count !== expected) throw new Error(`ledger says ${mine.count}, city has ${expected}`);
+    if (!mine.cities.length) throw new Error('no city attributed');
+  });
+
+  await t('IDLE DIAGNOSIS: says WHY a building produces nothing', async () => {
+    const snap = await get('/api/nation', token);
+    const cityId = snap.body.perCity[0].id;
+    // A steel mill with no power is the classic case.
+    await fetch(BASE + `/api/city/${cityId}/improvements`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ improvement: 'steel_mill', count: 1 }),
+    });
+
+    const r = await get('/api/economy', token);
+    const city = r.body.perCity.find(c => c.id === cityId);
+    if (!Array.isArray(city.idle)) throw new Error('idle is not an array');
+    if (!city.powered) {
+      const mill = city.idle.find(i => i.key === 'steel_mill');
+      if (!mill) throw new Error('unpowered steel mill not reported as idle');
+      if (!mill.reason) throw new Error('idle building has no reason given');
+    }
+  });
+
+  await t('MATERIALS: commerce building blocked without steel', async () => {
+    const snap = await get('/api/nation', token);
+    const cityId = snap.body.perCity[0].id;
+    // Ensure there is no steel to spend.
+    await db.query(
+      `UPDATE nation_resources SET amount = 0 WHERE nation_id = $1 AND resource IN ('steel','aluminum')`,
+      [snap.body.nation.id]);
+
+    const res = await fetch(BASE + `/api/city/${cityId}/improvements`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ improvement: 'supermarket', count: 1 }),
+    });
+    eq(res.status, 400);
+    const body = await res.json();
+    if (!body.error.includes('steel')) throw new Error('error does not name the missing material');
+    if (!body.missing) throw new Error('no missing-materials breakdown returned');
+  });
+
+  await t('MATERIALS: succeeds once you have them, and they are DEDUCTED', async () => {
+    const snap = await get('/api/nation', token);
+    const cityId = snap.body.perCity[0].id;
+    await db.query(
+      `UPDATE nation_resources SET amount = 500 WHERE nation_id = $1 AND resource IN ('steel','aluminum')`,
+      [snap.body.nation.id]);
+
+    const r = await fetch(BASE + `/api/city/${cityId}/improvements`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ improvement: 'supermarket', count: 1 }),
+    }).then(r => r.json());
+
+    if (!r.materials || !r.materials.steel) throw new Error('build did not report materials');
+
+    const after = await get('/api/nation', token);
+    const steelLeft = after.body.nation.stockpile.steel;
+    if (steelLeft >= 500) throw new Error(`steel not deducted: ${steelLeft}`);
+    if (Math.abs(steelLeft - (500 - r.materials.steel)) > 0.01) {
+      throw new Error(`deducted the wrong amount: ${500 - steelLeft} vs ${r.materials.steel}`);
+    }
+  });
+
+  await t('MATERIALS: demolition salvages half, no money back', async () => {
+    const snap = await get('/api/nation', token);
+    const cityId = snap.body.perCity[0].id;
+    const before = snap.body.nation.stockpile.steel;
+
+    const r = await fetch(BASE + `/api/city/${cityId}/improvements`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ improvement: 'supermarket', count: -1 }),
+    }).then(r => r.json());
+
+    if (!r.salvage || !r.salvage.steel) throw new Error('no salvage returned');
+    eq(r.refund, 0, 'money should never be refunded:');
+
+    const after = await get('/api/nation', token);
+    if (!(after.body.nation.stockpile.steel > before)) throw new Error('salvage not credited');
+  });
+
+  await t('reference exposes materials so the UI can show costs', async () => {
+    const r = await get('/api/reference');
+    const bank = r.body.improvements.bank;
+    if (!bank.materials) throw new Error('bank has no materials in reference data');
+    if (!bank.materials.steel) throw new Error('bank materials missing steel');
+    // Raw buildings must stay material-free.
+    const mine = r.body.improvements.coal_mine;
+    if (mine.materials && Object.keys(mine.materials).length) {
+      throw new Error('coal_mine should need no materials');
+    }
+  });
+
+  await t('EVERY building explains itself in its OWN terms', async () => {
+    const snap = await get('/api/nation', token);
+    const cityId = snap.body.perCity[0].id;
+    const build = (improvement, count) => fetch(BASE + `/api/city/${cityId}/improvements`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ improvement, count }),
+    });
+    // One from each category that produces no RESOURCE — these were the rows
+    // showing nothing but dashes.
+    await build('bank', 1);
+    await build('police_station', 1);
+    await build('barracks', 1);
+
+    const r = await get('/api/economy', token);
+    const expect = {
+      bank: 'commerce',
+      police_station: 'crime',
+      barracks: 'holds',
+    };
+    for (const [key, label] of Object.entries(expect)) {
+      const line = r.body.byImprovement.find(l => l.key === key);
+      if (!line) continue;   // slots may have run out
+      if (!line.effect) throw new Error(`${key} has no effect description`);
+      if (!line.effect.parts.some(p => p.label === label)) {
+        throw new Error(`${key} does not report "${label}" — its row would be empty`);
+      }
+    }
+  });
+
+  await t('POWER: ledger says WHICH power problem it is', async () => {
+    const r = await get('/api/economy', token);
+    const city = r.body.perCity[0];
+    if (!city.power) throw new Error('perCity.power missing');
+    if (city.power.powered === undefined) throw new Error('power.powered missing');
+    if (!city.powered) {
+      if (!['capacity','fuel'].includes(city.power.reason)) {
+        throw new Error(`unpowered city gave reason "${city.power.reason}"`);
+      }
+      if (!city.power.message) throw new Error('no message explaining the outage');
+    }
+  });
+
+  console.log('\n-- Policy --');
+
+  await t('policy.html loads', async () => {
+    const r = await get('/policy.html');
+    eq(r.status, 200);
+    has(r.body, 'In force', 'policy.html');
+  });
+
+  await t('policy.js loads and comes AFTER api.js', async () => {
+    const r = await get('/js/policy.js');
+    eq(r.status, 200);
+    has(r.body, 'renderSlots', 'policy.js');
+    const page = await get('/policy.html');
+    if (page.body.indexOf('/js/api.js') > page.body.indexOf('/js/policy.js')) {
+      throw new Error('api.js loads after policy.js');
+    }
+  });
+
+  await t('every page links to Policy', async () => {
+    for (const p of ['/dashboard.html','/cities.html','/military.html','/market.html','/economy.html']) {
+      const r = await get(p);
+      if (!r.body.includes('policy.html')) throw new Error(`${p} has no Policy nav link`);
+    }
+  });
+
+  await t('catalogue returns all three slots with options', async () => {
+    const r = await get('/api/policy', token);
+    eq(r.status, 200);
+    for (const slot of ['economic','social','military']) {
+      if (!r.body.catalogue[slot]) throw new Error(`${slot} missing from catalogue`);
+      if (r.body.catalogue[slot].policies.length < 2) throw new Error(`${slot} has too few options`);
+      if (!r.body.slots[slot]) throw new Error(`${slot} state missing`);
+    }
+  });
+
+  await t('EVERY policy sent to the UI shows a gain AND a cost', async () => {
+    const r = await get('/api/policy', token);
+    for (const info of Object.values(r.body.catalogue)) {
+      for (const p of info.policies) {
+        if (!p.gain?.length) throw new Error(`${p.key} has no gain`);
+        if (!p.cost?.length) throw new Error(`${p.key} has no cost — it would be a free win`);
+        if (!p.summary) throw new Error(`${p.key} has no summary text`);
+      }
+    }
+  });
+
+  await t('PREVIEW shows the diff before committing', async () => {
+    const res = await fetch(BASE + '/api/policy/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ slot: 'economic', policy: 'austerity' }),
+    });
+    eq(res.status, 200);
+    const p = await res.json();
+    if (!Array.isArray(p.changes) || !p.changes.length) throw new Error('no changes reported');
+    if (!p.lockDays) throw new Error('lock duration not stated');
+    // Austerity must show BOTH sides.
+    const improved = p.changes.filter(c => c.improved).length;
+    const worse = p.changes.filter(c => !c.improved).length;
+    if (!improved || !worse) throw new Error('preview did not show both gain and cost');
+  });
+
+  await t('adopting works, then LOCKS the slot', async () => {
+    const set = (slot, policy) => fetch(BASE + '/api/policy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ slot, policy }),
+    });
+
+    const first = await set('economic', 'austerity');
+    eq(first.status, 200);
+
+    const second = await set('economic', 'laissez_faire');
+    eq(second.status, 400, 'second change should be locked:');
+    const body = await second.json();
+    if (!body.error.toLowerCase().includes('lock')) throw new Error(body.error);
+  });
+
+  await t('a policy cannot be put in the wrong slot', async () => {
+    const res = await fetch(BASE + '/api/policy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ slot: 'social', policy: 'austerity' }),
+    });
+    eq(res.status, 400);
+  });
+
+  await t('active effects appear once a policy is in force', async () => {
+    const r = await get('/api/policy', token);
+    if (!r.body.activeEffects.length) throw new Error('no active effects after adopting');
+    for (const e of r.body.activeEffects) {
+      if (!e.text) throw new Error('effect has no readable text');
+      if (typeof e.good !== 'boolean') throw new Error('effect does not say if it helps');
+    }
+  });
+
+  console.log('\n-- Market --');
+
+  await t('market.html loads', async () => {
+    const r = await get('/market.html');
+    eq(r.status, 200);
+    has(r.body, 'Order book', 'market.html');
+  });
+
+  await t('market.js loads and comes AFTER api.js', async () => {
+    const r = await get('/js/market.js');
+    eq(r.status, 200);
+    has(r.body, 'renderBook', 'market.js');
+    const page = await get('/market.html');
+    if (page.body.indexOf('/js/api.js') > page.body.indexOf('/js/market.js')) {
+      throw new Error('api.js loads after market.js');
+    }
+  });
+
+  await t('every page links to the market', async () => {
+    for (const p of ['/dashboard.html','/cities.html','/military.html']) {
+      const r = await get(p);
+      if (!r.body.includes('market.html')) throw new Error(`${p} has no Market nav link`);
+    }
+  });
+
+  await t('market overview covers every tradeable resource', async () => {
+    const r = await get('/api/market', token);
+    eq(r.status, 200);
+    if (!Array.isArray(r.body.resources)) throw new Error('resources not an array');
+    for (const res of r.body.resources) {
+      for (const k of ['resource','bid','ask','medianPrice']) {
+        if (res[k] === undefined) throw new Error(`overview.${res.resource}.${k} missing`);
+      }
+    }
+  });
+
+  await t('book returns the shape the UI renders', async () => {
+    const r = await get('/api/market/coal', token);
+    eq(r.status, 200);
+    for (const k of ['bids','asks','bid','ask','spread','medianPrice','recentTrades','myOrders']) {
+      if (r.body[k] === undefined) throw new Error(`book.${k} missing`);
+    }
+    if (!Array.isArray(r.body.bids)) throw new Error('bids not an array');
+  });
+
+  await t('MAKER PRICE WINS: bid above the ask pays the ask', async () => {
+    // Second nation to trade against.
+    await db.query(`DELETE FROM users WHERE email = 'mkt@test.com'`);
+    const reg2 = await fetch(BASE + '/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'market-counterparty' },
+      body: JSON.stringify({ email: 'mkt@test.com', password: 'password123',
+        nationName: 'Bourse', leaderName: 'B', continent: 'asia' }),
+    });
+    const t2 = (await reg2.json()).token;
+    const n2 = await get('/api/nation', t2);
+    await db.query(
+      `UPDATE nation_resources SET amount = 200 WHERE nation_id = $1 AND resource = 'coal'`,
+      [n2.body.nation.id]);
+
+    const post = (tok, body) => fetch(BASE + '/api/market/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+      body: JSON.stringify(body),
+    }).then(r => r.json());
+
+    await post(t2, { resource: 'coal', side: 'sell', price: 100, quantity: 50 });
+    const buy = await post(token, { resource: 'coal', side: 'buy', price: 150, quantity: 20 });
+
+    if (buy.filled !== 20) throw new Error('did not fill: ' + JSON.stringify(buy));
+    if (buy.averagePrice !== 100) {
+      throw new Error(`paid ${buy.averagePrice}, should pay the resting 100 not the bid 150`);
+    }
+    if (buy.spent !== 2000) throw new Error(`spent ${buy.spent}, expected 2000`);
+
+    await db.query(`DELETE FROM users WHERE email = 'mkt@test.com'`);
+  });
+
+  await t('PRICE CHART: history, change and stats are returned', async () => {
+    const r = await get('/api/market/coal', token);
+    for (const k of ['history','current','change','changePercent','direction','stats']) {
+      if (r.body[k] === undefined) throw new Error(`book.${k} missing — chart/ticker cannot render`);
+    }
+    if (!Array.isArray(r.body.history)) throw new Error('history is not an array');
+    for (const p of r.body.history) {
+      for (const k of ['turn','open','high','low','close','volume']) {
+        if (typeof p[k] !== 'number') throw new Error(`history point missing ${k}`);
+      }
+    }
+  });
+
+  await t('ticker data present on every overview row', async () => {
+    const r = await get('/api/market', token);
+    for (const res of r.body.resources) {
+      if (res.direction === undefined) throw new Error(`${res.resource}: direction missing`);
+      if (!['up','down','flat'].includes(res.direction)) throw new Error(`${res.resource}: bad direction ${res.direction}`);
+      if (!Array.isArray(res.spark)) throw new Error(`${res.resource}: spark not an array`);
+    }
+  });
+
+  await t('a RISING price reports up, not down', async () => {
+    // Regression guard: priceChange once passed trade OBJECTS to a function
+    // expecting PRICES, got NaN, and reported a 47% rise as "down".
+    const engine = require('../src/market/engine');
+    const rising = [
+      { price: 120, quantity: 1, turn: 6 }, { price: 115, quantity: 1, turn: 5 },
+      { price: 100, quantity: 1, turn: 4 }, { price: 95, quantity: 1, turn: 3 },
+      { price: 82, quantity: 1, turn: 2 },  { price: 80, quantity: 1, turn: 1 },
+    ];
+    const c = engine.priceChange(rising);
+    if (c.direction !== 'up') throw new Error(`rising market reported "${c.direction}"`);
+    if (c.changePercent === null) throw new Error('changePercent is null on a clear trend');
+    if (!(c.changePercent > 0)) throw new Error('changePercent should be positive');
+
+    const falling = [...rising].map((t, i) => ({ ...t, price: rising[rising.length - 1 - i].price }));
+    if (engine.priceChange(falling).direction !== 'down') throw new Error('falling market not reported as down');
+  });
+
+  await t('chart handles a flat and an empty market without dividing by zero', async () => {
+    const engine = require('../src/market/engine');
+    const flat = engine.priceChange([{ price: 100, quantity: 1, turn: 2 }, { price: 100, quantity: 1, turn: 1 }]);
+    eq(flat.direction, 'flat');
+    eq(engine.priceChange([]).direction, 'flat');
+    eq(engine.priceHistory([]).length, 0);
+  });
+
+  await t('cannot sell resources you do not have', async () => {
+    const res = await fetch(BASE + '/api/market/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ resource: 'uranium', side: 'sell', price: 100, quantity: 99999 }),
+    });
+    eq(res.status, 400);
+  });
+
   console.log('\n-- Military page --');
 
   await t('military.html loads', async () => {

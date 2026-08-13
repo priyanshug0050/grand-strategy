@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Policy — Grand Strategy</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">Grand Strategy</span>
+  <div class="clock" id="clock">
+    <span class="turn" id="clockTurn">Turn —</span>
+    <span class="until" id="clockUntil"></span>
+  </div>
+  <nav>
+    <a href="/dashboard.html">Situation</a>
+    <a href="/cities.html">Cities</a>
+    <a href="/economy.html">Economy</a>
+    <a href="/policy.html" aria-current="page">Policy</a>
+    <a href="/market.html">Market</a>
+    <a href="/military.html">Military</a>
+    <a href="#" id="signOut">Sign out</a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <div style="margin-bottom:1.2rem;">
+    <p class="eyebrow">Government</p>
+    <h1>Policy</h1>
+    <p class="muted" style="font-size:.85rem; max-width:52rem; margin-top:.5rem; line-height:1.6;">
+      Three slots — one economic, one social, one military. Every policy gives
+      something and takes something away; there is no free option. Changing one
+      locks that slot for several days, so a doctrine has to be worth living with.
+    </p>
+  </div>
+
+  <div id="msg" class="msg hidden"></div>
+
+  <!-- What your current government is actually doing -->
+  <section class="panel" style="margin-bottom:var(--gap-l)">
+    <header><h2>In force</h2><span class="eyebrow" id="ampLine"></span></header>
+    <div class="body"><div id="current"></div></div>
+  </section>
+
+  <!-- One block per slot -->
+  <div id="slots"></div>
+
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/policy.js"></script>
+</body>
+</html>

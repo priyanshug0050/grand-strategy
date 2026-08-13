@@ -66,12 +66,18 @@ t('mines work WITHOUT power', () => {
 
 console.log('\n-- Farms (land-driven) --');
 t('farm output = land/LAND_DIVISOR_PER_TURN', () => {
+  // Read the divisor from constants rather than hardcoding 500, so tuning it
+  // in constants.js (a normal balance change) doesn't also require editing
+  // this test every time — only actually breaking the formula should.
   approx(eco.farmProductionPerTurn(city(500,2000,{farm:1})), 2000/C.FARM.LAND_DIVISOR_PER_TURN, 1e-9);
 });
 t('Mass Irrigation improves the divisor (irrigated < normal)', () => {
   const a = eco.farmProductionPerTurn(city(500,2000,{farm:1}));
   const b = eco.farmProductionPerTurn(city(500,2000,{farm:1}), {projects:['mass_irrigation']});
   approx(b/a, C.FARM.LAND_DIVISOR_PER_TURN / C.FARM.LAND_DIVISOR_IRRIGATED, 1e-9);
+  if (!(C.FARM.LAND_DIVISOR_IRRIGATED < C.FARM.LAND_DIVISOR_PER_TURN)) {
+    throw new Error('irrigated divisor should be smaller (= more food) than normal');
+  }
 });
 t('Antarctica halves food', () => {
   const nrm = eco.farmProductionPerTurn(city(500,2000,{farm:1},'europe'));
@@ -113,6 +119,116 @@ t('zero inputs -> zero output, not NaN', () => {
   eq(r.outputs.steel, 0);
 });
 
+console.log('\n-- FREE ELECTRICITY (the same exploit, in power) --');
+t('plants with NO fuel do not power the city', () => {
+  const c = city(1000,2000,{coal_power:2, steel_mill:3});
+  const p = eco.cityProductionPerTurn(c, {stockpile:{}});
+  eq(p.powered, false, 'unfuelled plants reported as powered:');
+  eq(p.power.reason, 'fuel');
+});
+t('unfuelled plants burn NOTHING (no negative coal)', () => {
+  const c = city(1000,2000,{coal_power:2});
+  const p = eco.cityProductionPerTurn(c, {stockpile:{}});
+  if (p.net.coal < -1e-9) throw new Error(`burned ${-p.net.coal} coal it did not have`);
+});
+t('and everything downstream of power goes idle', () => {
+  const c = city(1000,2000,{coal_power:2, steel_mill:3});
+  const p = eco.cityProductionPerTurn(c, {stockpile:{iron:100}});
+  eq(p.gross.steel, 0, 'mills ran without power:');
+  eq(p.manufacturing.steel.limitedBy, 'power');
+});
+t('mines CAN fuel plants in the same turn', () => {
+  const c = city(1000,2000,{coal_power:2, coal_mine:10, steel_mill:3, iron_mine:10});
+  const p = eco.cityProductionPerTurn(c, {stockpile:{}});
+  eq(p.powered, true, 'same-turn extraction should fuel the plants:');
+  if (!(p.gross.steel > 0)) throw new Error('mills idle despite fuelled plants');
+});
+t('but not if the mines produce too little', () => {
+  const c = city(1000,2000,{coal_power:2, coal_mine:1, steel_mill:3, iron_mine:10});
+  eq(eco.cityProductionPerTurn(c, {stockpile:{}}).powered, false);
+});
+t('EVERY plant type refuses to run without its fuel', () => {
+  // The fix must be generic, not coal-specific. Each plant is given a city
+  // exactly its own capacity so it is the only thing keeping the lights on.
+  for (const [key, def] of Object.entries(C.IMPROVEMENTS)) {
+    if (def.category !== 'power' || !def.fuel) continue;
+    const c = city(def.infraCapacity, 4000, {[key]:1, bank:1});
+    const dry = eco.cityProductionPerTurn(c, {stockpile:{}});
+    if (dry.powered) throw new Error(`${key} ran with no ${def.fuel}`);
+    if (dry.power.reason !== 'fuel') throw new Error(`${key} gave reason "${dry.power.reason}"`);
+    if (dry.net[def.fuel] < -1e-9) throw new Error(`${key} burned ${def.fuel} it did not have`);
+
+    const stocked = eco.cityProductionPerTurn(c, {stockpile:{[def.fuel]: 1000}});
+    if (!stocked.powered) throw new Error(`${key} would not run WITH ${def.fuel}`);
+    if (!(stocked.consumed[def.fuel] > 0)) throw new Error(`${key} burned no ${def.fuel}`);
+  }
+});
+t('wind power needs no fuel at all', () => {
+  const c = city(250,1000,{wind_power:1, bank:2});
+  eq(eco.cityProductionPerTurn(c, {stockpile:{}}).powered, true);
+});
+t('MIXED plants: one unfuelled type blacks out the city', () => {
+  const c = city(1000,4000,{coal_power:1, oil_power:1, bank:2});
+  eq(eco.cityProductionPerTurn(c, {stockpile:{coal:100, oil:100}}).powered, true);
+  const noOil = eco.cityProductionPerTurn(c, {stockpile:{coal:100, oil:0}});
+  eq(noOil.powered, false, 'city ran with one fuel type missing:');
+  eq(noOil.power.resource, 'oil', 'named the wrong missing fuel:');
+});
+t('wind can cover part of the load, but the rest still needs fuel', () => {
+  const c = city(750,4000,{wind_power:1, coal_power:1, bank:2});
+  eq(eco.cityProductionPerTurn(c, {stockpile:{coal:0}}).powered, false);
+  eq(eco.cityProductionPerTurn(c, {stockpile:{coal:100}}).powered, true);
+  // All-wind needs nothing at all.
+  eq(eco.cityProductionPerTurn(city(750,4000,{wind_power:3, bank:2}), {stockpile:{}}).powered, true);
+});
+t('a plant can burn fuel the city mines that same turn', () => {
+  const enough = city(2000,4000,{nuclear_power:1, uranium_mine:5, bank:2});
+  // 5 uranium mines yield less than a 2000-infra nuclear plant burns.
+  eq(eco.cityProductionPerTurn(enough, {stockpile:{}}).powered, false,
+     'mines should NOT cover this plant:');
+  // Top it up from stock and it runs.
+  eq(eco.cityProductionPerTurn(enough, {stockpile:{uranium:10}}).powered, true);
+});
+t('powerStatus explains WHICH problem it is', () => {
+  const noCapacity = eco.powerStatus(city(1000,2000,{coal_power:1}), {stockpile:{coal:100}});
+  eq(noCapacity.reason, 'capacity');
+  const noFuel = eco.powerStatus(city(1000,2000,{coal_power:2}), {stockpile:{}});
+  eq(noFuel.reason, 'fuel');
+  if (!noFuel.message.includes('coal')) throw new Error('fuel message should name the resource');
+});
+
+console.log('\n-- FREE RESOURCES (the exploit) --');
+t('steel mill with NO inputs produces NOTHING', () => {
+  // Give it fuel so this isolates the INPUT shortage rather than the power
+  // shortage — with no coal at all the mill would stop for lack of power first.
+  const c = city(1000,2000,{steel_mill:3, coal_power:2});
+  const p = eco.cityProductionPerTurn(c, {stockpile:{coal:100}});
+  eq(p.powered, true, 'should be powered with coal in stock:');
+  eq(p.gross.steel, 0, 'steel from nothing:');
+  eq(p.manufacturing.steel.limitedBy, 'iron');
+});
+t('and it never drives an input negative', () => {
+  const c = city(1000,2000,{steel_mill:3, coal_power:2});
+  const p = eco.cityProductionPerTurn(c, {stockpile:{coal:100}});
+  for (const [r,v] of Object.entries(p.net)) {
+    if (r === 'coal') continue;   // power plants legitimately burn fuel
+    if (v < -1e-9) throw new Error(`${r} went negative (${v}) with an empty stockpile`);
+  }
+});
+t('mines can feed mills in the SAME turn', () => {
+  const c = city(1000,2000,{steel_mill:3, coal_power:2, coal_mine:10, iron_mine:10});
+  const p = eco.cityProductionPerTurn(c, {stockpile:{}});
+  if (!(p.gross.steel > 0)) throw new Error('same-turn extraction should feed manufacturing');
+  if (p.net.iron < 0) throw new Error('iron should not go negative when mines cover the mills');
+});
+t('cities do NOT double-spend one national stockpile', () => {
+  const mill = () => city(1000,2000,{steel_mill:3, coal_power:2});
+  const r = eco.nationRevenue([mill(),mill(),mill()],[1e5,1e5,1e5],{stockpile:{iron:1, coal:50}});
+  // 1 iron cannot support three cities each needing 0.9375.
+  const ironUsed = r.perCity.reduce((s,c) => s + (c.consumedResourcesPerTurn.iron||0), 0);
+  if (ironUsed > 1.0001) throw new Error(`consumed ${ironUsed} iron from a stockpile of 1`);
+});
+
 console.log('\n-- Pollution --');
 t('manufacturing pollutes +32 each', () => {
   approx(eco.pollutionIndex(city(1000,2000,{steel_mill:2})), 64, 1e-9);
@@ -136,12 +252,12 @@ const base = 100000;
 t('out of food = -33% (the big one)', () => {
   approx(eco.grossIncomePerDay(base,{outOfFood:true}), 67000, 1);
 });
-t('Open Markets = +1%', () => {
-  approx(eco.grossIncomePerDay(base,{policies:{domestic:'open_markets'}}), 101000, 1);
+t('Laissez-Faire = +6% income (and costs output elsewhere)', () => {
+  approx(eco.grossIncomePerDay(base,{policies:{economic:'laissez_faire'}}), 106000, 1);
 });
 t('modifiers compound multiplicatively', () => {
-  const r = eco.grossIncomePerDay(base,{outOfFood:true, policies:{domestic:'open_markets'}});
-  approx(r, 100000*1.01*0.67, 1);
+  const r = eco.grossIncomePerDay(base,{outOfFood:true, policies:{economic:'laissez_faire'}});
+  approx(r, 100000*1.06*0.67, 1);
 });
 t('color bonus is flat per TURN, converted to daily', () => {
   const r = eco.grossIncomePerDay(base,{colorBonusPerTurn:50000});

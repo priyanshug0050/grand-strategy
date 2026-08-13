@@ -87,6 +87,7 @@ const API = (() => {
 
     nation:    () => request('/api/nation'),
     events:    (limit = 30) => request(`/api/nation/events?limit=${limit}`),
+    economy:   () => request('/api/economy'),
     reference: () => request('/api/reference'),
     health:    () => request('/api/health'),
     rankings:  () => request('/api/rankings'),
@@ -112,8 +113,17 @@ const API = (() => {
     attack: (warId, attackType, target) =>
       request(`/api/war/${warId}/attack`, { method: 'POST', body: { attackType, target } }),
 
+    market: () => request('/api/market'),
+    marketBook: (resource) => request(`/api/market/${resource}`),
+    placeOrder: (resource, side, price, quantity) =>
+      request('/api/market/order', { method: 'POST', body: { resource, side, price, quantity } }),
+    cancelOrder: (orderId) => request(`/api/market/order/${orderId}`, { method: 'DELETE' }),
+
     buildProject: (project) => request('/api/project', { method: 'POST', body: { project } }),
-    setPolicy: (type, policy) => request('/api/policy', { method: 'POST', body: { type, policy } }),
+    policies: () => request('/api/policy'),
+    previewPolicy: (slot, policy) =>
+      request('/api/policy/preview', { method: 'POST', body: { slot, policy } }),
+    setPolicy: (slot, policy) => request('/api/policy', { method: 'POST', body: { slot, policy } }),
   };
 })();
 

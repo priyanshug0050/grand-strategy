@@ -72,6 +72,11 @@ const CITY = {
   CITY_COST_FLOOR: 1,                           // VERIFIED — never below $1 after discounts
 
   // --- City purchase gating ------------------------------------------------
+  // Demolishing returns half the MATERIALS and no money. Full return would
+  // make build/demolish cycling a way to launder value; zero return makes a
+  // misclick on a 300-steel drydock catastrophic.
+  DEMOLITION_SALVAGE_RATE: 0.5,                 // DESIGN
+
   FREE_CITY_COUNT: 10,                          // VERIFIED — first 10 have no timer
   CITY_COOLDOWN_TURNS: 120,                     // VERIFIED — 10 days after city 10
 };
@@ -282,28 +287,44 @@ const IMPROVEMENTS = {
   wind_power:    { category: 'power', fuel: null,      cost: 30000,  upkeep: 500,  pollution: 0, limit: 5, infraCapacity: 250 },  // PLACEHOLDER
 
   // --- Civil (mitigation) --------------------------------------------------
-  police_station:   { category: 'civil', cost: 75000,  upkeep: 750,  crimeReduction: 2.5, limit: 5, power: true }, // PLACEHOLDER
-  hospital:         { category: 'civil', cost: 100000, upkeep: 1000, diseaseReduction: 2.5, limit: 5, power: true }, // VERIFIED reduction
-  recycling_center: { category: 'civil', cost: 125000, upkeep: 2500, pollutionReduction: 70, limit: 3, power: true }, // VERIFIED reduction/limit
-  subway:           { category: 'civil', cost: 250000, upkeep: 3250, pollutionReduction: 45, commerce: 8, limit: 1, power: true }, // PLACEHOLDER
+  police_station:   { category: 'civil', cost: 75000,  materials: { steel: 40, munitions: 15 },  upkeep: 750,  crimeReduction: 2.5, limit: 5, power: true }, // PLACEHOLDER
+  hospital:         { category: 'civil', cost: 100000, materials: { steel: 50, aluminum: 40 },   upkeep: 1000, diseaseReduction: 2.5, limit: 5, power: true }, // VERIFIED reduction
+  recycling_center: { category: 'civil', cost: 125000, materials: { steel: 70, aluminum: 30 },   upkeep: 2500, pollutionReduction: 70, limit: 3, power: true }, // VERIFIED reduction/limit
+  subway:           { category: 'civil', cost: 250000, materials: { steel: 200, aluminum: 100 }, upkeep: 3250, pollutionReduction: 45, commerce: 8, limit: 1, power: true }, // PLACEHOLDER
 
   // --- Commerce (raise the commerce rate -> raise income) -------------------
-  supermarket:   { category: 'commerce', cost: 5000,     upkeep: 600,   commerce: 3,  limit: 4, power: true }, // PLACEHOLDER
-  bank:          { category: 'commerce', cost: 15000,    upkeep: 1800,  commerce: 5,  limit: 5, power: true }, // PLACEHOLDER
-  shopping_mall: { category: 'commerce', cost: 45000,    upkeep: 5400,  commerce: 9,  limit: 4, power: true }, // PLACEHOLDER
-  stadium:       { category: 'commerce', cost: 100000,   upkeep: 12150, commerce: 12, limit: 3, power: true }, // PLACEHOLDER
+  // ⚠️ MATERIALS, NOT JUST MONEY.
+  //
+  // These used to cost money alone, which made the whole manufacturing chain
+  // pointless: you could refine steel and have nothing to spend it on, and a
+  // rich nation could skip industry entirely and buy its way to max commerce.
+  //
+  // Now every commerce, civil and military building consumes REFINED goods.
+  // That gives steel and aluminum a domestic sink, makes the market matter,
+  // and means growth costs production time rather than only cash.
+  //
+  // Raw and manufacturing buildings deliberately do NOT need materials — a
+  // steel mill requiring steel is a chicken-and-egg trap a new player can
+  // never escape.
+  supermarket:   { category: 'commerce', cost: 5000,   materials: { steel: 10 },                 upkeep: 600,   commerce: 3,  limit: 4, power: true }, // PLACEHOLDER
+  bank:          { category: 'commerce', cost: 15000,  materials: { steel: 25, aluminum: 10 },   upkeep: 1800,  commerce: 5,  limit: 5, power: true }, // PLACEHOLDER
+  shopping_mall: { category: 'commerce', cost: 45000,  materials: { steel: 60, aluminum: 30 },   upkeep: 5400,  commerce: 9,  limit: 4, power: true }, // PLACEHOLDER
+  stadium:       { category: 'commerce', cost: 100000, materials: { steel: 120, aluminum: 80 },  upkeep: 12150, commerce: 12, limit: 3, power: true }, // PLACEHOLDER
 
   // --- Military (unit capacity + recruitment throughput) -------------------
-  barracks: { category: 'military', unit: 'soldiers', capacity: 3000, perDay: 1000, cost: 3000,  upkeep: 0, limit: 5, power: false }, // VERIFIED
-  factory:  { category: 'military', unit: 'tanks',    capacity: 250,  perDay: 50,   cost: 15000, upkeep: 0, limit: 5, power: true },  // PLACEHOLDER
-  hangar:   { category: 'military', unit: 'aircraft', capacity: 18,   perDay: 3,    cost: 100000, upkeep: 0, limit: 5, power: true }, // PLACEHOLDER
-  drydock:  { category: 'military', unit: 'ships',    capacity: 5,    perDay: 1,    cost: 250000, upkeep: 0, limit: 3, power: true }, // PLACEHOLDER
+  // Barracks stay cheap and material-free on purpose: soldiers are the one
+  // military option a nation with no industry can still reach for, which is
+  // what keeps a bombed-out player able to defend themselves.
+  barracks: { category: 'military', unit: 'soldiers', capacity: 3000, perDay: 1000, cost: 3000,   materials: {},                                upkeep: 0, limit: 5, power: false }, // VERIFIED
+  factory:  { category: 'military', unit: 'tanks',    capacity: 250,  perDay: 50,   cost: 15000,  materials: { steel: 30 },                     upkeep: 0, limit: 5, power: true },  // PLACEHOLDER
+  hangar:   { category: 'military', unit: 'aircraft', capacity: 18,   perDay: 3,    cost: 100000, materials: { steel: 80, aluminum: 120 },      upkeep: 0, limit: 5, power: true },  // PLACEHOLDER
+  drydock:  { category: 'military', unit: 'ships',    capacity: 5,    perDay: 1,    cost: 250000, materials: { steel: 300, aluminum: 60 },      upkeep: 0, limit: 3, power: true },  // PLACEHOLDER
 };
 
 /** Farm output is land-driven, not flat. */
 const FARM = {
-  LAND_DIVISOR_PER_TURN: 200,                   // VERIFIED — food/turn = land / 500
-  LAND_DIVISOR_IRRIGATED: 320,                  // VERIFIED — with Mass Irrigation project 400
+  LAND_DIVISOR_PER_TURN: 250,                   // VERIFIED — food/turn = land / 500
+  LAND_DIVISOR_IRRIGATED: 185,                  // VERIFIED — with Mass Irrigation project
 };
 
 /** Power plant fuel burn. */
@@ -622,7 +643,7 @@ const PROJECTS = {
   bauxiteworks:              { effect: { productionBonus: { aluminum: 0.36 } }, cost: { money: 15000000, bauxite: 1000 } },
   arms_stockpile:            { effect: { productionBonus: { munitions: 0.20 } }, cost: { money: 15000000, lead: 1000 } },
   emergency_gasoline_reserve:{ effect: { productionBonus: { gasoline: 0.20 } }, cost: { money: 15000000, oil: 1000 } },
-  mass_irrigation:           { effect: { farmLandDivisor: 400 }, cost: { money: 3000000, food: 5000 } }, // VERIFIED effect
+  mass_irrigation:           { effect: { farmLandDivisor: 185}, cost: { money: 3000000, food: 5000 } }, // VERIFIED effect
   uranium_enrichment_program:{ effect: { productionBonus: { uranium: 0.20 } }, cost: { money: 22500000, uranium: 500 } },
 
   // --- Cost reducers -------------------------------------------------------

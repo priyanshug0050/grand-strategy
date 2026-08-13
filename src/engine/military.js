@@ -29,6 +29,7 @@
 'use strict';
 
 const C = require('./constants');
+const policy = require('./policy');
 
 // ============================================================================
 // HELPERS
@@ -319,6 +320,12 @@ function dailyRecruitmentCap(cities, unitKey, opts = {}) {
     perDay *= 1 + C.PROJECTS.propaganda_bureau.effect.militaryRecruitmentBonus;
   }
 
+  if (opts.policies || opts.policyEffects) {
+    perDay *= opts.policyEffects
+      ? (opts.policyEffects.recruitmentMultiplier ?? 1)
+      : policy.policyEffects(opts.policies).effects.recruitmentMultiplier;
+  }
+
   return Math.floor(perDay);
 }
 
@@ -355,7 +362,11 @@ function canRecruit(nation, unitKey, count, opts = {}) {
   }
 
   // Daily rate.
-  const dailyCap = dailyRecruitmentCap(cities, unitKey, { projects });
+  const dailyCap = dailyRecruitmentCap(cities, unitKey, {
+    projects,
+    policies: nation.policies,
+    policyEffects: opts.policyEffects,
+  });
   const alreadyToday = opts.recruitedToday || 0;
   if (alreadyToday + count > dailyCap) {
     const room = Math.max(dailyCap - alreadyToday, 0);

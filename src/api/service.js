@@ -32,6 +32,7 @@ const city = require('../engine/city');
 const military = require('../engine/military');
 const combat = require('../engine/combat');
 const modifiers = require('../engine/modifiers');
+const policy = require('../engine/policy');
 const population = require('../engine/population');
 const economy = require('../engine/economy');
 const C = require('../engine/constants');
@@ -39,6 +40,11 @@ const C = require('../engine/constants');
 /** Money must never be handed back with sub-cent precision. */
 function round2(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/** Resource quantities carry 4 decimals — production rates are fractional. */
+function round4(n) {
+  return Math.round((n + Number.EPSILON) * 10000) / 10000;
 }
 
 /** Thrown for player-facing rule violations — becomes a 400, not a 500. */
@@ -201,29 +207,69 @@ async function buildImprovements(nationId, cityId, improvementKey, count) {
     if (!def) throw new GameError(`Unknown improvement: ${improvementKey}`);
 
     if (count > 0) {
-      const check = city.canBuildImprovement(target, improvementKey, count);
-      if (!check.ok) throw new GameError(check.reason);
+      // Slots, per-city limit AND materials are all checked here, inside the
+      // lock. Checking affordability outside the transaction and spending
+      // inside it is the read-modify-write race that lets two requests buy
+      // with the same steel.
+      const check = city.canBuildImprovement(target, improvementKey, count, {
+        stockpile: nation.stockpile,
+      });
+      if (!check.ok) throw new GameError(check.reason, check.missing ? { missing: check.missing } : {});
 
-      const cost = def.cost * count;
-      if (nation.money < cost) {
-        throw new GameError(`Costs $${cost.toLocaleString()}, you have $${nation.money.toLocaleString()}`);
+      const cost = check.cost;
+      if (nation.money < cost.money) {
+        throw new GameError(`Costs $${cost.money.toLocaleString()}, you have $${nation.money.toLocaleString()}`);
       }
 
-      nation.money -= cost;
+      nation.money -= cost.money;
+      for (const [resource, amount] of Object.entries(cost.materials)) {
+        nation.stockpile[resource] = Math.max((nation.stockpile[resource] || 0) - amount, 0);
+      }
+
       target.improvements[improvementKey] = (target.improvements[improvementKey] || 0) + count;
       await repo.saveCity(tx, target);
       await repo.saveNation(tx, nation);
-      return { built: count, cost, total: target.improvements[improvementKey], moneyRemaining: nation.money };
+
+      return {
+        built: count,
+        cost: cost.money,          // kept for older callers
+        materials: cost.materials,
+        total: target.improvements[improvementKey],
+        moneyRemaining: nation.money,
+        stockpile: nation.stockpile,
+      };
     }
 
-    // Demolition. No refund — otherwise build/demolish cycling launders value.
+    // Demolition returns HALF the materials and no money.
+    //
+    // No money refund, because build/demolish cycling would otherwise launder
+    // value. But a full material loss makes a misclick catastrophic now that
+    // buildings cost 300 steel, so half comes back as salvage — enough to
+    // soften a mistake, not enough to make churning profitable.
     const demolish = Math.abs(count);
     const current = target.improvements[improvementKey] || 0;
     if (current < demolish) throw new GameError(`Only ${current} ${improvementKey} to demolish`);
 
+    const fullCost = city.improvementCost(improvementKey, demolish);
+    const salvage = {};
+    for (const [resource, amount] of Object.entries(fullCost.materials)) {
+      const returned = round2(amount * C.CITY.DEMOLITION_SALVAGE_RATE);
+      if (returned > 0) {
+        salvage[resource] = returned;
+        nation.stockpile[resource] = round2((nation.stockpile[resource] || 0) + returned);
+      }
+    }
+
     target.improvements[improvementKey] = current - demolish;
     await repo.saveCity(tx, target);
-    return { demolished: demolish, total: target.improvements[improvementKey], refund: 0 };
+    if (Object.keys(salvage).length) await repo.saveNation(tx, nation);
+
+    return {
+      demolished: demolish,
+      total: target.improvements[improvementKey],
+      refund: 0,
+      salvage,
+    };
   });
 }
 
@@ -285,25 +331,156 @@ async function buildProject(nationId, projectKey) {
   });
 }
 
-async function setPolicy(nationId, type, policyKey) {
+/**
+ * The whole policy catalogue, plus what this nation is running and when each
+ * slot unlocks again.
+ *
+ * One call gives the page everything: every option, its gain, its cost, and
+ * the cooldown state. The frontend never hardcodes a policy name or effect —
+ * add a policy to the engine and it appears here automatically.
+ */
+async function getPolicies(nationId) {
+  return db.withTransaction(async (tx) => {
+    const gs = await repo.loadGameState(tx);
+    const nation = await repo.loadNation(tx, nationId, { currentTurn: gs.turn });
+    if (!nation) throw new GameError('Nation not found');
+
+    const projects = nation.projects || [];
+    const amplification = modifiers.aggregateProjectEffects(projects).domesticPolicyBonus || 0;
+
+    const active = {
+      economic: nation.policies.economic,
+      social: nation.policies.social,
+      military: nation.policies.military,
+    };
+
+    const resolved = policy.policyEffects(active, { amplification });
+
+    const slots = {};
+    for (const slot of policy.SLOTS) {
+      const lastChanged = nation.policyTurns?.[slot] ?? null;
+      const cooldown = policy.canChangePolicy(slot, lastChanged, gs.turn);
+      slots[slot] = {
+        ...policy.SLOT_INFO[slot],
+        active: active[slot],
+        canChange: cooldown.ok,
+        reason: cooldown.reason || null,
+        turnsRemaining: cooldown.turnsRemaining || 0,
+        daysRemaining: cooldown.daysRemaining || 0,
+      };
+    }
+
+    return {
+      turn: gs.turn,
+      slots,
+      catalogue: policy.catalogue(),
+      active,
+      effects: resolved.effects,
+      // Amplification comes from projects like Government Support Agency and
+      // strengthens the GAIN of whatever you are running, never the cost.
+      amplification,
+      // Only the levers that are actually doing something — a list of 23
+      // untouched multipliers tells the player nothing.
+      activeEffects: Object.entries(resolved.effects)
+        .map(([key, value]) => {
+          const def = policy.EFFECT_KEYS[key];
+          const neutral = def.unit === 'multiplier' ? 1 : 0;
+          if (Math.abs(value - neutral) < 1e-9) return null;
+          return policy.describeEffect(key, value);
+        })
+        .filter(Boolean),
+    };
+  });
+}
+
+/**
+ * Preview a swap before committing to it.
+ *
+ * Changing a policy moves several unrelated numbers at once and then locks for
+ * days. Showing the full diff first is the same principle as the city purchase
+ * preview and the battle odds — consequence before commitment.
+ */
+async function previewPolicy(nationId, slot, policyKey) {
+  return db.withTransaction(async (tx) => {
+    const gs = await repo.loadGameState(tx);
+    const nation = await repo.loadNation(tx, nationId, { currentTurn: gs.turn });
+    if (!nation) throw new GameError('Nation not found');
+
+    if (!policy.SLOTS.includes(slot)) throw new GameError(`Unknown policy slot: ${slot}`);
+    if (policyKey && !policy.isValidPolicy(policyKey, slot)) {
+      throw new GameError(`${policyKey} is not a ${slot} policy`);
+    }
+
+    const projects = nation.projects || [];
+    const amplification = modifiers.aggregateProjectEffects(projects).domesticPolicyBonus || 0;
+
+    const current = {
+      economic: nation.policies.economic,
+      social: nation.policies.social,
+      military: nation.policies.military,
+    };
+    const proposed = { ...current, [slot]: policyKey || null };
+
+    const cooldown = policy.canChangePolicy(slot, nation.policyTurns?.[slot] ?? null, gs.turn);
+    const days = slot === 'military' ? C.POLICY_COOLDOWN.WAR_DAYS : C.POLICY_COOLDOWN.DOMESTIC_DAYS;
+
+    return {
+      slot,
+      from: current[slot],
+      to: policyKey || null,
+      canChange: cooldown.ok,
+      reason: cooldown.reason || null,
+      daysRemaining: cooldown.daysRemaining || 0,
+      changes: policy.comparePolicies(current, proposed, { amplification }),
+      // Worth stating plainly: this decision is locked in for days.
+      lockDays: days,
+    };
+  });
+}
+
+async function setPolicy(nationId, slot, policyKey) {
   return db.withTransaction(async (tx) => {
     const { nation, gameState } = await loadLocked(tx, nationId);
 
-    const table = type === 'war' ? C.WAR_POLICIES : C.DOMESTIC_POLICIES;
-    if (policyKey && !table[policyKey]) throw new GameError(`Unknown ${type} policy: ${policyKey}`);
+    if (!policy.SLOTS.includes(slot)) throw new GameError(`Unknown policy slot: ${slot}`);
+    if (policyKey && !policy.isValidPolicy(policyKey, slot)) {
+      throw new GameError(`${policyKey} is not a ${slot} policy`);
+    }
 
-    const lastChanged = type === 'war' ? nation.warPolicyTurn : nation.domesticPolicyTurn;
-    const check = modifiers.canChangePolicy(type, lastChanged, gameState.turn);
-    if (!check.ok) throw new GameError(check.reason, { turnsRemaining: check.turnsRemaining });
+    const lastChanged = nation.policyTurns?.[slot] ?? null;
+    const check = policy.canChangePolicy(slot, lastChanged, gameState.turn);
+    if (!check.ok) {
+      throw new GameError(check.reason, {
+        turnsRemaining: check.turnsRemaining,
+        daysRemaining: check.daysRemaining,
+      });
+    }
 
-    const column = type === 'war' ? 'war_policy' : 'domestic_policy';
-    const turnColumn = type === 'war' ? 'war_policy_turn' : 'domestic_policy_turn';
+    // Column names are built from a validated slot, never from raw input —
+    // `slot` has already been checked against the SLOTS whitelist above.
+    const column = `${slot}_policy`;
+    const turnColumn = `${slot}_policy_turn`;
     await tx.query(
       `UPDATE nations SET ${column} = $2, ${turnColumn} = $3 WHERE id = $1`,
-      [nationId, policyKey, gameState.turn]
+      [nationId, policyKey || null, gameState.turn]
     );
 
-    return { type, policy: policyKey, effects: table[policyKey] || {} };
+    const projects = nation.projects || [];
+    const amplification = modifiers.aggregateProjectEffects(projects).domesticPolicyBonus || 0;
+    const active = {
+      economic: nation.policies.economic,
+      social: nation.policies.social,
+      military: nation.policies.military,
+      [slot]: policyKey || null,
+    };
+
+    return {
+      slot,
+      policy: policyKey,
+      description: policyKey ? policy.describePolicy(policyKey) : null,
+      effects: policy.policyEffects(active, { amplification }).effects,
+      lockedForDays: slot === 'military' ? C.POLICY_COOLDOWN.WAR_DAYS : C.POLICY_COOLDOWN.DOMESTIC_DAYS,
+    };
   });
 }
 
@@ -629,6 +806,244 @@ async function previewCityChange(nationId, cityId, changes = {}) {
 }
 
 /**
+ * What does this building actually DO, in its own terms?
+ *
+ * Resource producers are only one kind. Expressing a bank as "produces: —"
+ * is technically true and completely useless; it produces commerce, which is
+ * what raises income per citizen.
+ */
+function describeEffect(key, def) {
+  const e = { kind: def.category, parts: [] };
+
+  if (def.infraCapacity) {
+    e.parts.push({ label: 'powers', value: `${def.infraCapacity.toLocaleString()} infra` });
+    e.parts.push({ label: 'fuel', value: def.fuel || 'none' });
+  }
+  if (def.commerce) e.parts.push({ label: 'commerce', value: `+${def.commerce}` });
+  if (def.diseaseReduction) e.parts.push({ label: 'disease', value: `−${def.diseaseReduction}%` });
+  if (def.crimeReduction) e.parts.push({ label: 'crime', value: `−${def.crimeReduction}%` });
+  if (def.pollutionReduction) e.parts.push({ label: 'pollution', value: `−${def.pollutionReduction}` });
+  if (def.capacity) {
+    e.parts.push({ label: 'holds', value: `${def.capacity.toLocaleString()} ${def.unit}` });
+    e.parts.push({ label: 'trains', value: `${def.perDay.toLocaleString()}/day` });
+  }
+  if (def.pollution) e.parts.push({ label: 'pollution', value: `+${def.pollution}`, bad: true });
+
+  return e;
+}
+
+/**
+ * The full economic ledger — every number, traced to its source.
+ *
+ * P&W's Revenue page tells you the totals and nothing else. When income drops
+ * you are left guessing which of forty buildings caused it, and the community
+ * answer is "build a spreadsheet". This returns the working instead: which
+ * improvement produces what, which consumes what, what each building costs to
+ * run, and — the part no summary can show — WHY a factory is idle.
+ *
+ * Everything here is computed by the same engine functions the tick uses, so
+ * the ledger and the game can never disagree.
+ */
+async function getEconomy(nationId) {
+  return db.withTransaction(async (tx) => {
+    const gs = await repo.loadGameState(tx);
+    const nation = await repo.loadNation(tx, nationId, { currentTurn: gs.turn });
+    if (!nation) throw new GameError('Nation not found');
+
+    const projects = nation.projects || [];
+    const opts = { projects, policies: nation.policies, units: nation.units,
+                   atWar: (nation.activeWars || 0) > 0, stockpile: nation.stockpile };
+
+    const snap = tick.snapshot(nation, gs.turn, { radiation: gs.world.radiation });
+
+    // ---- Per-improvement attribution --------------------------------------
+    // The heart of the page. Every building that produces, consumes or costs
+    // anything gets a line, so a change in the totals is always traceable.
+    const byImprovement = {};
+    const addLine = (key, field, amount, cityName) => {
+      if (!amount) return;
+      const line = byImprovement[key] || (byImprovement[key] = {
+        key, category: C.IMPROVEMENTS[key]?.category || 'other',
+        count: 0, produces: {}, consumes: {}, upkeepPerDay: 0,
+        pollution: 0, commerce: 0, cities: [],
+      });
+      if (field === 'upkeep') line.upkeepPerDay = round2(line.upkeepPerDay + amount);
+      else if (field === 'pollution') line.pollution += amount;
+      else if (field === 'commerce') line.commerce += amount;
+      if (cityName && !line.cities.includes(cityName)) line.cities.push(cityName);
+    };
+
+    const perCity = [];
+
+    for (const c of nation.cities) {
+      const production = economy.cityProductionPerTurn(c, opts);
+      const commerce = economy.commerceRate(c, opts);
+      const pollution = economy.pollutionIndex(c, opts);
+      // Pass the stockpile so "powered" means FUELLED, not merely wired.
+      const powerOpts = { ...opts, stockpile: nation.stockpile };
+      const power = economy.powerStatus(c, { ...powerOpts, producedThisTurn: production.gross });
+      const powered = power.powered;
+      const capacity = economy.powerCapacity(c);
+      const snapCity = snap.perCity.find(x => x.id === c.id) || {};
+
+      // Which improvements are IDLE, and why. A player staring at zero steel
+      // needs to know it is a power problem, not a market problem.
+      const idle = [];
+      for (const [key, count] of Object.entries(c.improvements || {})) {
+        const def = C.IMPROVEMENTS[key];
+        if (!def || !count) continue;
+        if (def.power && !powered) {
+          idle.push({ key, count,
+            reason: power.reason === 'fuel'
+              ? `no power — plants out of ${power.resource}`
+              : 'no power — not enough plant capacity' });
+        }
+      }
+      for (const [resource, run] of Object.entries(production.manufacturing)) {
+        if (run.throttled && run.limitedBy && run.limitedBy !== 'power') {
+          const def = C.RECIPES[resource];
+          idle.push({ key: def.improvement, count: c.improvements?.[def.improvement] || 0,
+                      reason: `out of ${run.limitedBy}`, partial: true });
+        }
+      }
+
+      for (const [key, count] of Object.entries(c.improvements || {})) {
+        const def = C.IMPROVEMENTS[key];
+        if (!def || !count) continue;
+        const line = byImprovement[key] || (byImprovement[key] = {
+          key, category: def.category, count: 0, produces: {}, consumes: {},
+          upkeepPerDay: 0, pollution: 0, commerce: 0, cities: [],
+          // Not every building produces a RESOURCE. A bank produces commerce,
+          // a hospital produces reduced disease, a barracks produces capacity.
+          // Sending the same two columns for all of them left most of the
+          // table empty and hid what these buildings actually do.
+          effect: describeEffect(key, def),
+        });
+        line.count += count;
+        if (!line.cities.includes(c.name)) line.cities.push(c.name);
+        if (def.upkeep) line.upkeepPerDay = round2(line.upkeepPerDay + def.upkeep * count);
+        if (def.pollution) line.pollution += def.pollution * count;
+        if (def.commerce) line.commerce += def.commerce * count;
+      }
+
+      // Attribute production to the improvement that made it.
+      for (const [key, count] of Object.entries(c.improvements || {})) {
+        const def = C.IMPROVEMENTS[key];
+        if (!def || !count || def.category !== 'raw') continue;
+        const out = economy.rawProductionPerTurn(c, key, opts);
+        if (out > 0) {
+          const line = byImprovement[key];
+          line.produces[def.produces] = round4((line.produces[def.produces] || 0) + out);
+        }
+      }
+      for (const [resource, run] of Object.entries(production.manufacturing)) {
+        if (!run.outputs[resource]) continue;
+        const key = C.RECIPES[resource].improvement;
+        const line = byImprovement[key];
+        if (!line) continue;
+        line.produces[resource] = round4((line.produces[resource] || 0) + run.outputs[resource]);
+        for (const [res, amt] of Object.entries(run.inputs)) {
+          line.consumes[res] = round4((line.consumes[res] || 0) + amt);
+        }
+      }
+      const fuel = economy.fuelConsumptionPerTurn(c);
+      for (const [key, count] of Object.entries(c.improvements || {})) {
+        const def = C.IMPROVEMENTS[key];
+        if (!def || def.category !== 'power' || !count || !def.fuel) continue;
+        const line = byImprovement[key];
+        if (line && fuel[def.fuel]) {
+          line.consumes[def.fuel] = round4((line.consumes[def.fuel] || 0) + fuel[def.fuel]);
+        }
+      }
+
+      perCity.push({
+        id: c.id,
+        name: c.name,
+        infrastructure: c.infrastructure,
+        land: c.land,
+        population: snapCity.population || 0,
+        commerce,
+        pollution,
+        powered,
+        power,
+        powerCapacity: capacity,
+        powerDeficit: Math.max(c.infrastructure - capacity, 0),
+        incomePerDay: round2(economy.cityIncomePerDay(c, snapCity.population || 0, { ...opts, commerce })),
+        upkeepPerDay: economy.improvementUpkeepPerDay(c, opts),
+        grossResourcesPerTurn: production.gross,
+        consumedResourcesPerTurn: production.consumed,
+        netResourcesPerTurn: production.net,
+        idle,
+        warnings: snapCity.warnings || [],
+      });
+    }
+
+    // ---- Resource flow: where every unit comes from and goes --------------
+    const flow = {};
+    for (const r of C.ALL_RESOURCES) {
+      if (r === 'money' || r === 'credits') continue;
+      const gross = perCity.reduce((s, c) => s + (c.grossResourcesPerTurn[r] || 0), 0);
+      const consumed = perCity.reduce((s, c) => s + (c.consumedResourcesPerTurn[r] || 0), 0);
+      const stock = nation.stockpile[r] || 0;
+      const net = gross - consumed - (r === 'food' ? snap.revenue.foodConsumptionPerTurn : 0);
+
+      flow[r] = {
+        stockpile: round4(stock),
+        producedPerTurn: round4(gross),
+        consumedPerTurn: round4(consumed + (r === 'food' ? snap.revenue.foodConsumptionPerTurn : 0)),
+        netPerTurn: round4(net),
+        // The number that actually matters: how long until this runs out.
+        turnsRemaining: net < 0 && stock > 0 ? Math.floor(stock / -net) : null,
+        daysRemaining: net < 0 && stock > 0
+          ? round2(stock / -net / C.TICK.TURNS_PER_DAY) : null,
+      };
+    }
+
+    // Food is consumed by people and soldiers, not by a building — split it
+    // out so the ledger accounts for every unit.
+    const soldiers = nation.units.soldiers || 0;
+    const atWar = (nation.activeWars || 0) > 0;
+    const civilianFood = snap.totalPopulation * C.ECONOMY.FOOD_PER_POPULATION_PER_TURN;
+    const militaryFood = snap.revenue.foodConsumptionPerTurn - civilianFood;
+
+    // ---- Cash: gross to net, every deduction named ------------------------
+    const rev = snap.revenue;
+    const cash = {
+      grossIncomePerDay: rev.grossIncomePerDay,
+      baseIncomePerDay: rev.baseIncomePerDay,
+      improvementUpkeepPerDay: rev.improvementUpkeepPerDay,
+      unitUpkeepPerDay: rev.unitUpkeepPerDay,
+      netIncomePerDay: rev.netIncomePerDay,
+      netIncomePerTurn: rev.netIncomePerTurn,
+      outOfFood: rev.outOfFood,
+      // What the -33% food penalty is costing, in money, right now.
+      foodPenaltyCost: rev.outOfFood
+        ? round2(rev.grossIncomePerDay / C.ECONOMY.OUT_OF_FOOD_PENALTY - rev.grossIncomePerDay)
+        : 0,
+    };
+
+    return {
+      turn: gs.turn,
+      money: nation.money,
+      totalPopulation: snap.totalPopulation,
+      cash,
+      food: {
+        civilianPerTurn: round4(civilianFood),
+        militaryPerTurn: round4(militaryFood),
+        soldiers,
+        atWar,
+        totalPerTurn: round4(snap.revenue.foodConsumptionPerTurn),
+      },
+      flow,
+      byImprovement: Object.values(byImprovement).sort((a, b) =>
+        a.category.localeCompare(b.category) || a.key.localeCompare(b.key)),
+      perCity,
+      projectEffects: modifiers.aggregateProjectEffects(projects),
+    };
+  });
+}
+
+/**
  * Who can this nation legally declare on right now?
  *
  * Score range is the anti-griefing backbone, but P&W makes players compute it
@@ -768,10 +1183,16 @@ async function previewAttack(nationId, warId, attackType) {
   });
 }
 
+// ============================================================================
+// MARKET
+// ============================================================================
+
+
 module.exports = {
   GameError,
   getSnapshot,
   getEvents,
+  getEconomy,
   findTargets,
   previewAttack,
   previewCityChange,
@@ -782,6 +1203,8 @@ module.exports = {
   recruit,
   buildProject,
   setPolicy,
+  getPolicies,
+  previewPolicy,
   declareWar,
   attack,
 };

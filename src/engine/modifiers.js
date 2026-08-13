@@ -23,6 +23,7 @@
 'use strict';
 
 const C = require('./constants');
+const policy = require('./policy');
 
 function assertNonNegative(value, name) {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -73,12 +74,10 @@ function espionageOdds(yourSpies, enemySpies, safetyLevel, operation, opts = {})
 
   odds /= modifier;
 
-  // Covert war policy bonus.
-  const policy = C.WAR_POLICIES[opts.attackerPolicy];
-  if (policy && policy.espionageOddsBonus) odds *= 1 + policy.espionageOddsBonus;
-
-  const defPolicy = C.WAR_POLICIES[opts.defenderPolicy];
-  if (defPolicy && defPolicy.espionageDefenseBonus) odds *= 1 - defPolicy.espionageDefenseBonus;
+  // Military policy. Deep Cover raises the attacker's odds; a defender running
+  // it makes itself harder to reach, so the same coefficient works both ways.
+  odds *= policy.policyEffects({ military: opts.attackerPolicy }).effects.espionageOddsMultiplier;
+  odds /= policy.policyEffects({ military: opts.defenderPolicy }).effects.espionageOddsMultiplier;
 
   return clamp(odds, 0, 100);
 }
@@ -318,6 +317,25 @@ function resolveColorState(nation, currentTurn) {
       exemptFromAllianceTax: C.COLORS.GRAY.exemptFromAllianceTax,
       countsTowardTotalScore: C.COLORS.GRAY.countsTowardTotalScore,
       reason: 'inactive',
+    };
+  }
+
+  // Beige is a ONE-WAY EXIT. If the stored color is still 'beige' but the
+  // protection turn has passed, the nation has left beige and cannot return —
+  // fall through to gray until they pick a real color.
+  //
+  // Without this the color column stays 'beige' forever after expiry, so the
+  // nation keeps the beige per-turn bonus, stays exempt from alliance tax, and
+  // — worst of all — reads as immune to war declarations to any caller that
+  // checks `.color` rather than `.immuneToNewDeclarations`. Permanently
+  // unattackable, permanently untaxed, purely by not updating a column.
+  if (nation.color === 'beige') {
+    return {
+      color: 'gray',
+      immuneToNewDeclarations: false,
+      exemptFromAllianceTax: C.COLORS.GRAY.exemptFromAllianceTax,
+      countsTowardTotalScore: C.COLORS.GRAY.countsTowardTotalScore,
+      reason: 'beige_expired',
     };
   }
 

@@ -31,6 +31,7 @@
 'use strict';
 
 const C = require('./constants');
+const policy = require('./policy');
 
 // ============================================================================
 // HELPERS
@@ -47,6 +48,10 @@ function assertNonNegative(value, name) {
   if (value < 0) throw new RangeError(`${name} must be >= 0, got: ${value}`);
 }
 
+function round4(n) {
+  return Math.round((n + Number.EPSILON) * 10000) / 10000;
+}
+
 function round2(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
@@ -54,6 +59,21 @@ function round2(n) {
 function countImprovement(city, key) {
   if (!city.improvements) return 0;
   return city.improvements[key] || 0;
+}
+
+/**
+ * One policy coefficient. Accepts a pre-resolved effect object or the raw
+ * selection — see the same helper in city.js.
+ */
+function policyMultiplier(opts, key) {
+  if (opts.policyEffects) return opts.policyEffects[key] ?? 1;
+  if (!opts.policies) return 1;
+  let amplification = 0;
+  for (const p of (opts.projects || [])) {
+    const bonus = C.PROJECTS[p]?.effect?.domesticPolicyBonus;
+    if (bonus) amplification += bonus;
+  }
+  return policy.policyEffects(opts.policies, { amplification }).effects[key] ?? 1;
 }
 
 function daysToTurns(perDay) { return perDay / C.TICK.TURNS_PER_DAY; }
@@ -137,9 +157,56 @@ function powerCapacity(city) {
  * Partial coverage is not partial power — this is a hard threshold, which is
  * why crossing 500 infra with one plant is a classic new-player trap.
  */
-function isPowered(city) {
+function isPowered(city, opts = {}) {
   if (city.infrastructure <= 0) return true;
-  return powerCapacity(city) >= city.infrastructure;
+  if (powerCapacity(city) < city.infrastructure) return false;
+
+  // ⚠️ CAPACITY IS NOT POWER. A plant with no fuel is a building, not a
+  // power station.
+  //
+  // Checking capacity alone let a nation run factories on plants burning coal
+  // it did not own: the city reported "powered", every manufacturing building
+  // ran, and coal simply went negative before the tick clamped it to zero.
+  // Free electricity, which is the same exploit as free steel.
+  //
+  // When no stockpile is supplied we assume fuel is available — callers like
+  // the city-shape preview legitimately ask "would this be powered?" without
+  // modelling reserves. The tick always passes one.
+  if (!opts.stockpile) return true;
+
+  const fuel = fuelConsumptionPerTurn(city);
+  for (const [resource, needed] of Object.entries(fuel)) {
+    if (needed <= 0) continue;
+    const available = (opts.stockpile[resource] || 0) + (opts.producedThisTurn?.[resource] || 0);
+    if (available < needed) return false;
+  }
+  return true;
+}
+
+/** Why is this city unpowered? Capacity, fuel, or neither. */
+function powerStatus(city, opts = {}) {
+  const capacity = powerCapacity(city);
+  const deficit = Math.max(city.infrastructure - capacity, 0);
+
+  if (deficit > 0) {
+    return { powered: false, reason: 'capacity', deficit,
+      message: `${Math.round(deficit)} infrastructure uncovered — build another power plant.` };
+  }
+
+  const fuel = fuelConsumptionPerTurn(city);
+  if (opts.stockpile) {
+    for (const [resource, needed] of Object.entries(fuel)) {
+      if (needed <= 0) continue;
+      const available = (opts.stockpile[resource] || 0) + (opts.producedThisTurn?.[resource] || 0);
+      if (available < needed) {
+        return { powered: false, reason: 'fuel', resource,
+          needed: round4(needed), available: round4(available),
+          message: `Plants need ${round4(needed)} ${resource} per turn and you have ${round4(available)}. Everything that needs power is idle.` };
+      }
+    }
+  }
+
+  return { powered: true, reason: null, capacity, headroom: capacity - city.infrastructure };
 }
 
 /**
@@ -197,6 +264,7 @@ function rawProductionPerTurn(city, improvementKey, opts = {}) {
   let output = perTurnEach * count * (1 + bonus);
 
   output *= projectProductionMultiplier(def.produces, opts.projects || []);
+  output *= policyMultiplier(opts, 'rawProductionMultiplier');
   return output;
 }
 
@@ -217,7 +285,8 @@ function farmProductionPerTurn(city, opts = {}) {
     : C.FARM.LAND_DIVISOR_PER_TURN;
 
   const bonus = stackingBonus(count, 'farm');
-  let output = (city.land / divisor) * count * (1 + bonus);
+  let output = (city.land / divisor) * count * (1 + bonus)
+             * policyMultiplier(opts, 'rawProductionMultiplier');
 
   // Continent penalty (Antarctica halves food).
   const continent = C.CONTINENTS[city.continent];
@@ -273,8 +342,9 @@ function manufacturingPerTurn(city, resource, opts = {}) {
   const result = { outputs: {}, inputs: {}, throttled: false, limitedBy: null };
   if (count === 0) return result;
 
-  // Unpowered manufacturing produces nothing.
-  if (!isPowered(city)) {
+  // Unpowered manufacturing produces nothing. Pass the stockpile through so
+  // "powered" means fuelled, not merely wired.
+  if (!isPowered(city, opts)) {
     result.limitedBy = 'power';
     return result;
   }
@@ -283,10 +353,13 @@ function manufacturingPerTurn(city, resource, opts = {}) {
   const throughput = count * (1 + bonus);
   const projectMult = projectProductionMultiplier(resource, opts.projects || []);
 
-  let outputPerTurn = daysToTurns(recipe.output) * throughput * projectMult;
+  const policyMult = policyMultiplier(opts, 'manufacturingMultiplier');
+  let outputPerTurn = daysToTurns(recipe.output) * throughput * projectMult * policyMult;
   const inputsPerTurn = {};
   for (const [res, amount] of Object.entries(recipe.inputs)) {
-    inputsPerTurn[res] = daysToTurns(amount) * throughput * projectMult;
+    // Inputs scale with output, so the conversion ratio never drifts — a
+    // policy that raises throughput raises the raw material bill with it.
+    inputsPerTurn[res] = daysToTurns(amount) * throughput * projectMult * policyMult;
   }
 
   // Throttle to available stockpile if one was supplied.
@@ -333,16 +406,58 @@ function cityProductionPerTurn(city, opts = {}) {
   }
 
   // --- Power fuel burn ---
+  //
+  // Plants burn from the same budget as everything else, and can never burn
+  // more than exists. If they cannot be fuelled, the city is unpowered — which
+  // isPowered() below will detect, shutting down every powered building.
   const fuel = fuelConsumptionPerTurn(city);
-  addToLedger(consumed, fuel);
+  for (const [resource, needed] of Object.entries(fuel)) {
+    const stocked = opts.stockpile ? (opts.stockpile[resource] || 0) : Infinity;
+    const availableNow = stocked + gross[resource];
+    consumed[resource] += Math.min(needed, Math.max(availableNow, 0));
+  }
 
   // --- Manufacturing ---
+  //
+  // ⚠️ THE BUDGET BELOW IS WHAT STOPS FREE STEEL.
+  //
+  // manufacturingPerTurn() only throttles when it is TOLD what is available.
+  // Called without a stockpile it assumes infinite inputs — so a nation with
+  // three steel mills and no mines produced steel out of nothing, drove its
+  // iron negative, and the tick engine then clamped iron to zero and moved on.
+  // The mills kept the steel. That is free resources, which is an exploit.
+  //
+  // So: build a budget from the stockpile PLUS this turn's own extraction
+  // (a mine feeding a mill in the same turn is legitimate), and spend it down
+  // as each recipe runs. Whatever is left when a recipe's turn comes is all
+  // that recipe gets.
+  const budget = {};
+  for (const r of C.ALL_RESOURCES) {
+    const stocked = opts.stockpile ? (opts.stockpile[r] || 0) : 0;
+    budget[r] = Math.max(stocked + gross[r] - consumed[r], 0);
+  }
+
+  // A mine can fuel a plant in the same turn it extracts, so the power check
+  // must see this turn's own extraction — not just yesterday's stockpile.
+  const powerOpts = { ...opts, producedThisTurn: gross };
+
   const manufacturing = {};
   for (const resource of Object.keys(C.RECIPES)) {
-    const run = manufacturingPerTurn(city, resource, opts);
+    // Pass the remaining budget unless the caller explicitly supplied its own
+    // `available` (the market preview does this to model a hypothetical).
+    const runOpts = opts.available !== undefined
+      ? { ...opts, producedThisTurn: gross }
+      : { ...opts, producedThisTurn: gross, available: opts.stockpile ? budget : undefined };
+
+    const run = manufacturingPerTurn(city, resource, runOpts);
+
     if (run.outputs[resource]) {
       gross[resource] += run.outputs[resource];
       addToLedger(consumed, run.inputs);
+      // Spend what this recipe took, so the next one cannot claim it again.
+      for (const [res, amount] of Object.entries(run.inputs)) {
+        budget[res] = Math.max((budget[res] || 0) - amount, 0);
+      }
     }
     manufacturing[resource] = run;
   }
@@ -350,7 +465,11 @@ function cityProductionPerTurn(city, opts = {}) {
   const net = emptyLedger();
   for (const r of C.ALL_RESOURCES) net[r] = gross[r] - consumed[r];
 
-  return { gross, consumed, net, manufacturing, powered: isPowered(city) };
+  return {
+    gross, consumed, net, manufacturing,
+    powered: isPowered(city, powerOpts),
+    power: powerStatus(city, powerOpts),
+  };
 }
 
 // ============================================================================
@@ -367,6 +486,8 @@ function commerceRate(city, opts = {}) {
     const def = C.IMPROVEMENTS[key];
     if (def && def.commerce) commerce += def.commerce * count;
   }
+
+  commerce *= policyMultiplier(opts, 'commerceMultiplier');
 
   const projects = opts.projects || [];
   const cap = projects.includes('international_trade_center')
@@ -419,10 +540,7 @@ function grossIncomePerDay(baseIncomePerDay, opts = {}) {
   assertNonNegative(baseIncomePerDay, 'baseIncomePerDay');
   let income = baseIncomePerDay;
 
-  const domestic = opts.policies && opts.policies.domestic;
-  if (domestic === 'open_markets') {
-    income *= C.DOMESTIC_POLICIES.open_markets.grossIncomeMultiplier;
-  }
+  income *= policyMultiplier(opts, 'grossIncomeMultiplier');
 
   if (opts.outOfFood) {
     income *= C.ECONOMY.OUT_OF_FOOD_PENALTY;
@@ -450,7 +568,7 @@ function grossIncomePerDay(baseIncomePerDay, opts = {}) {
  * Soldiers eat measurably more at war — one of several ways war costs money
  * even when you are winning.
  */
-function foodConsumptionPerTurn(population, units = {}, atWar = false) {
+function foodConsumptionPerTurn(population, units = {}, atWar = false, opts = {}) {
   assertNonNegative(population, 'population');
 
   const civilian = population * C.ECONOMY.FOOD_PER_POPULATION_PER_TURN;
@@ -461,20 +579,20 @@ function foodConsumptionPerTurn(population, units = {}, atWar = false) {
     : C.UNITS.soldiers.foodPerUnitPeace;
   const military = daysToTurns(soldiers * perSoldier);
 
-  return civilian + military;
+  return (civilian + military) * policyMultiplier(opts, 'foodConsumptionMultiplier');
 }
 
 /**
  * Unit upkeep in $ per day. War rates are ~50% higher across the board.
  */
-function unitUpkeepPerDay(units = {}, atWar = false) {
+function unitUpkeepPerDay(units = {}, atWar = false, opts = {}) {
   let total = 0;
   for (const [unitKey, count] of Object.entries(units)) {
     const def = C.UNITS[unitKey];
     if (!def || !count) continue;
     total += count * (atWar ? def.upkeepWar : def.upkeepPeace);
   }
-  return round2(total);
+  return round2(total * policyMultiplier(opts, 'unitUpkeepMultiplier'));
 }
 
 /**
@@ -495,7 +613,7 @@ function improvementUpkeepPerDay(city, opts = {}) {
     }
     total += upkeep;
   }
-  return round2(total);
+  return round2(total * policyMultiplier(opts, 'improvementUpkeepMultiplier'));
 }
 
 // ============================================================================
@@ -537,7 +655,7 @@ function pollutionIndex(city, opts = {}) {
     }
   }
 
-  return Math.max(pollution, 0);
+  return Math.max(pollution * policyMultiplier(opts, 'pollutionMultiplier'), 0);
 }
 
 // ============================================================================
@@ -619,16 +737,32 @@ function nationRevenue(cities, populations, opts = {}) {
   let improvementUpkeep = 0;
   const perCity = [];
 
+  // The stockpile is NATIONAL but consumed CITY BY CITY. Without tracking what
+  // is left, every city would claim the same 100 iron and a nation with five
+  // steel-mill cities would refine 500 iron it never had.
+  //
+  // Cities are served in order. That is arbitrary but deterministic, which is
+  // what matters — a player can reason about it, and it never double-spends.
+  const remaining = { ...(opts.stockpile || {}) };
+
   cities.forEach((city, i) => {
-    const b = cityRevenueBreakdown(city, populations[i], opts);
+    const b = cityRevenueBreakdown(city, populations[i], { ...opts, stockpile: remaining });
     perCity.push(b);
     baseIncomePerDay += b.incomePerDay;
     improvementUpkeep += b.upkeepPerDay;
     addToLedger(resourcesPerTurn, b.resourcesPerTurn);
+
+    // Hand the next city what this one did not use.
+    if (opts.stockpile) {
+      for (const r of C.ALL_RESOURCES) {
+        const delta = (b.resourcesPerTurn[r] || 0);
+        remaining[r] = Math.max((remaining[r] || 0) + delta, 0);
+      }
+    }
   });
 
   const totalPopulation = populations.reduce((a, b) => a + b, 0);
-  const foodPerTurn = foodConsumptionPerTurn(totalPopulation, opts.units, opts.atWar);
+  const foodPerTurn = foodConsumptionPerTurn(totalPopulation, opts.units, opts.atWar, opts);
   resourcesPerTurn.food -= foodPerTurn;
 
   const outOfFood = opts.outOfFood !== undefined
@@ -638,7 +772,7 @@ function nationRevenue(cities, populations, opts = {}) {
         : false);
 
   const gross = grossIncomePerDay(baseIncomePerDay, { ...opts, outOfFood });
-  const unitUpkeep = unitUpkeepPerDay(opts.units, opts.atWar);
+  const unitUpkeep = unitUpkeepPerDay(opts.units, opts.atWar, opts);
 
   return {
     perCity,
@@ -666,6 +800,7 @@ module.exports = {
   // power
   powerCapacity,
   isPowered,
+  powerStatus,
   fuelConsumptionPerTurn,
 
   // production
@@ -696,6 +831,7 @@ module.exports = {
   // unit conversion — always use these, never convert by hand
   daysToTurns,
   turnsToDays,
+  policyMultiplier,
 
   // testing
   _emptyLedger: emptyLedger,

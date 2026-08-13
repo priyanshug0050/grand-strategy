@@ -242,9 +242,237 @@ button.qtypreset { padding: .5rem .7rem; min-width: 44px; }
 .imp-head .lim { font-size: .68rem; color: var(--chalk-dim); font-weight: 400; }
 .imp-effect { font-family: var(--data); font-size: .66rem; color: var(--chalk); margin-top: .3rem; }
 .imp-meta { font-size: .62rem; color: var(--chalk-dim); margin: .2rem 0 .5rem; }
+
+/* Material costs. Green when you hold enough, red when you do not — the
+   player should see the constraint before clicking, not after. */
+.imp-mats { display: flex; flex-wrap: wrap; gap: .25rem; margin: .35rem 0 .1rem; }
+.imp-mats .mat {
+  font-family: var(--data); font-size: .6rem; letter-spacing: .04em;
+  padding: .08rem .32rem; border: 1px solid var(--verdigris); color: var(--verdigris);
+}
+.imp-mats .mat.short { border-color: var(--alarm); color: var(--alarm); }
+.imp-mats .mat.none { border-color: var(--line); color: var(--chalk-dim); }
 .imp-warn { font-family: var(--data); font-size: .62rem; color: var(--alarm); margin-bottom: .4rem; }
 .imp-actions { display: flex; gap: .3rem; margin-top: auto; }
 .imp-actions button { flex: 1; padding: .3rem; font-size: .66rem; }
+
+/* ---------- Policy ---------- */
+
+/* Gain on the left, cost on the right — the tradeoff read in one glance. */
+.effect-split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.effect-col h3 { font-size: .8rem; margin-bottom: .5rem; }
+.effect-col h3.pos { color: var(--verdigris); }
+.effect-col h3.neg { color: var(--alarm); }
+
+.effect {
+  font-family: var(--data); font-size: .76rem;
+  padding: .25rem 0 .25rem .7rem; border-left: 2px solid;
+}
+.effect.pos { border-color: var(--verdigris); color: var(--verdigris); }
+.effect.neg { border-color: var(--alarm); color: var(--alarm); }
+
+.policy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 1px; background: var(--line); }
+
+.policy { background: var(--panel); padding: .8rem .9rem; display: flex; flex-direction: column; }
+.policy.active { background: var(--raised); border-left: 2px solid var(--phosphor); }
+.policy.locked { opacity: .6; }
+.policy-head { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+.policy-head .nm {
+  font-family: var(--display); font-size: 1rem; letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.policy.active .policy-head .nm { color: var(--phosphor); }
+.badge.active-badge { border-color: var(--phosphor); color: var(--phosphor); }
+.policy-summary {
+  font-size: .74rem; color: var(--chalk-dim); line-height: 1.5;
+  margin: .35rem 0 .6rem;
+}
+.policy-effects { margin-bottom: .7rem; }
+.policy button { width: 100%; margin-top: auto; }
+.policy-diff {
+  font-family: var(--data); font-size: .74rem;
+  background: var(--void); border-left: 2px solid var(--phosphor);
+  padding: .6rem .7rem; margin-top: .6rem;
+}
+.policy-diff .row { display: flex; justify-content: space-between; gap: 1rem; padding: .12rem 0; }
+.policy-diff .row .k { color: var(--chalk-dim); }
+.policy-diff .row.minus .v { color: var(--alarm); }
+.policy-diff .row .v { color: var(--verdigris); }
+.policy-diff .formula {
+  margin-top: .5rem; padding-top: .45rem; border-top: 1px dotted var(--line);
+  color: var(--chalk-dim); font-size: .68rem; line-height: 1.5;
+}
+
+button.clear-policy { margin-top: 1rem; }
+.eyebrow.locked { color: var(--alarm); }
+
+@media (max-width: 700px) {
+  .effect-split { grid-template-columns: 1fr; gap: 1rem; }
+}
+
+/* ---------- Economy ledger ---------- */
+
+table.ledger-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+table.ledger-table th {
+  font-family: var(--data); font-size: .6rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--chalk-dim); text-align: right;
+  padding: .35rem .5rem; border-bottom: 1px solid var(--brass-dim);
+}
+table.ledger-table th:first-child { text-align: left; }
+table.ledger-table td { padding: .4rem .5rem; border-bottom: 1px solid var(--line); text-align: right; }
+table.ledger-table td:first-child { text-align: left; }
+table.ledger-table td.num { font-family: var(--data); font-variant-numeric: tabular-nums; }
+table.ledger-table td.res-name {
+  font-family: var(--display); letter-spacing: .04em;
+  text-transform: uppercase; font-size: .82rem;
+}
+table.ledger-table td.pos { color: var(--verdigris); }
+table.ledger-table td.neg { color: var(--alarm); }
+table.ledger-table td.warn { color: var(--phosphor); }
+/* Resources you neither produce, consume, nor hold are noise — dim them so the
+   rows that matter stand out. */
+table.ledger-table tr.dim td { opacity: .35; }
+
+.badge {
+  font-family: var(--data); font-size: .58rem; letter-spacing: .06em;
+  padding: .08rem .3rem; margin-left: .3rem;
+  border: 1px solid var(--brass-dim); color: var(--brass); text-transform: none;
+}
+.badge.poll { border-color: var(--alarm); color: var(--alarm); }
+
+.attr-group { margin-bottom: 1.6rem; }
+.attr-group:last-child { margin-bottom: 0; }
+.attr-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: .3rem;
+}
+.attr-head h3 { color: var(--brass); }
+.attr-head .num { font-size: .7rem; }
+
+.citycard { border: 1px solid var(--line); border-left: 2px solid var(--brass); padding: .6rem .8rem; margin-bottom: .6rem; }
+.citycard:last-child { margin-bottom: 0; }
+.citycard-head { display: flex; justify-content: space-between; align-items: baseline; }
+.citycard-head .nm { font-family: var(--display); letter-spacing: .04em; text-transform: uppercase; font-size: .95rem; }
+.citycard-head .pos { color: var(--verdigris); }
+.citycard-head .neg { color: var(--alarm); }
+.citycard-body { display: grid; grid-template-columns: 1fr 1fr; gap: .2rem .8rem; font-size: .74rem; margin-top: .4rem; }
+
+/* ---------- Market ticker ---------- */
+
+.ticker {
+  display: flex; gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-top: 2px solid var(--brass-dim);
+  overflow-x: auto; margin-bottom: var(--gap-l);
+}
+.tick {
+  flex: 1; min-width: 132px; background: var(--panel); border: 0;
+  padding: .55rem .8rem; text-align: left; text-transform: none; letter-spacing: 0;
+  border-bottom: 2px solid transparent;
+}
+.tick:hover { background: var(--raised); }
+.tick .nm {
+  display: block; font-family: var(--data); font-size: .6rem;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--chalk-dim);
+}
+.tick .px { display: inline-block; font-size: .95rem; font-weight: 600; margin-right: .4rem; }
+.tick .ch { font-size: .7rem; }
+.tick.up   .ch, .tick.up   { border-bottom-color: var(--verdigris); }
+.tick.up   .ch { color: var(--verdigris); }
+.tick.down .ch, .tick.down { border-bottom-color: var(--alarm); }
+.tick.down .ch { color: var(--alarm); }
+.tick.flat .ch { color: var(--chalk-dim); }
+.ticker-empty {
+  background: var(--panel); padding: .7rem 1rem; width: 100%;
+  font-family: var(--data); font-size: .74rem; color: var(--chalk-dim);
+}
+
+/* ---------- Price chart ---------- */
+
+svg.pricechart { width: 100%; height: 180px; display: block; }
+.chart-axis {
+  display: flex; justify-content: space-between;
+  font-family: var(--data); font-size: .64rem; color: var(--chalk-dim);
+  margin-top: .3rem; padding: 0 .2rem;
+}
+.chg { font-family: var(--data); font-size: .8rem; }
+.chg.up { color: var(--verdigris); }
+.chg.down { color: var(--alarm); }
+.chg.flat { color: var(--chalk-dim); }
+h2 .chg { margin-left: .5rem; font-size: .78rem; }
+
+svg.spark { width: 60px; height: 16px; display: block; margin-left: auto; }
+.spark-cell { width: 70px; }
+
+/* ---------- Market ---------- */
+
+table.market-overview { width: 100%; border-collapse: collapse; font-size: .78rem; }
+table.market-overview th {
+  font-family: var(--data); font-size: .6rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--chalk-dim); text-align: right;
+  padding: .35rem .5rem; border-bottom: 1px solid var(--brass-dim);
+}
+table.market-overview th:first-child { text-align: left; }
+table.market-overview td { padding: .4rem .5rem; border-bottom: 1px solid var(--line); text-align: right; }
+table.market-overview td.res-name { text-align: left; font-family: var(--display);
+  letter-spacing: .04em; text-transform: uppercase; font-size: .82rem; }
+table.market-overview td.num { font-family: var(--data); font-variant-numeric: tabular-nums; }
+table.market-overview td.bid { color: var(--verdigris); }
+table.market-overview td.ask { color: var(--alarm); }
+table.market-overview td.pos { color: var(--verdigris); }
+table.market-overview td.neg { color: var(--alarm); }
+table.market-overview tr.selected { background: var(--raised); }
+table.market-overview tr.selected td.res-name { color: var(--phosphor); }
+table.market-overview button { padding: .22rem .55rem; font-size: .64rem; }
+
+/* Order book. Asks above, bids below, spread in the middle — the gap between
+   the two sides IS the spread, read at a glance. */
+.book-head {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .5rem;
+  font-family: var(--data); font-size: .6rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--chalk-dim);
+  padding: 0 .5rem .35rem; border-bottom: 1px solid var(--brass-dim); text-align: right;
+}
+.level {
+  position: relative; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .5rem;
+  padding: .3rem .5rem; cursor: pointer; text-align: right;
+  border-bottom: 1px solid rgba(44,58,68,.4);
+}
+.level:hover { background: var(--raised); }
+.level .depth { position: absolute; inset: 0 0 0 auto; height: 100%; opacity: .16; }
+.level.ask .depth { background: var(--alarm); }
+.level.bid .depth { background: var(--verdigris); }
+.level .p { font-family: var(--data); font-weight: 600; position: relative; }
+.level.ask .p { color: var(--alarm); }
+.level.bid .p { color: var(--verdigris); }
+.level .q, .level .v { font-family: var(--data); position: relative; font-size: .76rem; }
+.mid {
+  font-family: var(--data); font-size: .68rem; color: var(--chalk-dim);
+  text-align: center; padding: .5rem; margin: .2rem 0;
+  border-top: 1px solid var(--brass-dim); border-bottom: 1px solid var(--brass-dim);
+}
+
+.sidetoggle { display: flex; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.sidetoggle button { flex: 1; border: 0; border-top: 2px solid transparent; }
+.sidetoggle button.active { background: var(--raised); border-top-color: var(--phosphor); color: var(--phosphor); }
+
+table.trades { width: 100%; border-collapse: collapse; font-size: .76rem; }
+table.trades th {
+  font-family: var(--data); font-size: .6rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--chalk-dim); text-align: right;
+  padding: .3rem .5rem; border-bottom: 1px solid var(--brass-dim);
+}
+table.trades td { padding: .35rem .5rem; border-bottom: 1px solid var(--line);
+  text-align: right; font-family: var(--data); font-variant-numeric: tabular-nums; }
+table.trades tr.flagged td { color: var(--alarm); }
+
+.myorder { border: 1px solid var(--line); border-left: 2px solid var(--line); padding: .55rem .7rem; margin-bottom: .5rem; }
+.myorder.buy { border-left-color: var(--verdigris); }
+.myorder.sell { border-left-color: var(--alarm); }
+.myorder-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+.myorder .side { font-family: var(--data); font-size: .64rem; letter-spacing: .1em; color: var(--chalk-dim); }
+.myorder button { padding: .2rem .5rem; font-size: .62rem; }
+.fillbar { height: 3px; background: var(--void); margin-top: .4rem; }
+.fillbar .fill { height: 100%; background: var(--brass); }
 
 /* ---------- Wars ---------- */
 

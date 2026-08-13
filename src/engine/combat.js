@@ -39,6 +39,7 @@
 
 const C = require('./constants');
 const military = require('./military');
+const policy = require('./policy');
 
 // ============================================================================
 // RNG
@@ -138,19 +139,16 @@ function resolveModifiers(opts = {}) {
   let casualtiesDealt = 1;
   let casualtiesTaken = 1;
 
-  const atkPolicy = C.WAR_POLICIES[opts.attackerPolicy];
-  if (atkPolicy) {
-    if (atkPolicy.infraDamageDealt) infraDamage *= atkPolicy.infraDamageDealt;
-    if (atkPolicy.lootReceived) loot *= atkPolicy.lootReceived;
-    if (atkPolicy.casualtiesDealt) casualtiesDealt *= atkPolicy.casualtiesDealt;
-  }
+  // Military policy from BOTH sides. The attacker's doctrine sets what they
+  // can do; the defender's sets what they can absorb. Blitzkrieg into Fortress
+  // Doctrine is a real matchup, and both coefficients apply.
+  const atk = policy.policyEffects({ military: opts.attackerPolicy }).effects;
+  const def = policy.policyEffects({ military: opts.defenderPolicy }).effects;
 
-  const defPolicy = C.WAR_POLICIES[opts.defenderPolicy];
-  if (defPolicy) {
-    if (defPolicy.infraDamageTaken) infraDamage *= defPolicy.infraDamageTaken;
-    if (defPolicy.lootLost) loot *= defPolicy.lootLost;
-    if (defPolicy.casualtiesTaken) casualtiesTaken *= defPolicy.casualtiesTaken;
-  }
+  infraDamage *= atk.infraDamageDealtMultiplier * def.infraDamageTakenMultiplier;
+  loot *= atk.lootReceivedMultiplier * def.lootLostMultiplier;
+  casualtiesTaken *= atk.casualtiesTakenMultiplier;
+  casualtiesDealt *= def.casualtiesTakenMultiplier;
 
   // Fortifying costs the attacker casualties but ends the moment you attack.
   if (opts.defenderFortified) {

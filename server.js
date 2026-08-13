@@ -191,10 +191,27 @@ const touchActivity = wrap(async (req, res, next) => {
   next();
 });
 
+// ---- Market (a separable module — see src/market/) --------------------------
+//
+// Two lines mount the entire exchange. Comment them out and the market is
+// gone; nothing else in the game references src/market/, so the rest keeps
+// working exactly as before.
+//
+// Middleware is passed IN rather than imported by the market, so the
+// dependency only points one way: this file knows about the market, the
+// market does not know about this file.
+const marketRoutes = require('./src/market/routes');
+app.use(marketRoutes.mount({ protect, touchActivity, wrap }));
+
 // ---- Read ----
 
 app.get('/api/nation', protect, touchActivity, wrap(async (req, res) => {
   res.json(await service.getSnapshot(req.nationId));
+}));
+
+/** The full economic ledger — every number traced to the building that made it. */
+app.get('/api/economy', protect, wrap(async (req, res) => {
+  res.json(await service.getEconomy(req.nationId));
 }));
 
 app.get('/api/nation/events', protect, wrap(async (req, res) => {
@@ -355,12 +372,22 @@ app.post('/api/project', protect, touchActivity, wrap(async (req, res) => {
   res.status(201).json(await service.buildProject(req.nationId, project));
 }));
 
+/** Catalogue, current selection, cooldowns and live effects in one call. */
+app.get('/api/policy', protect, wrap(async (req, res) => {
+  res.json(await service.getPolicies(req.nationId));
+}));
+
+/** What a swap would change, before it locks for days. */
+app.post('/api/policy/preview', protect, wrap(async (req, res) => {
+  const { slot, policy } = req.body || {};
+  if (!slot) return res.status(400).json({ error: 'slot required' });
+  res.json(await service.previewPolicy(req.nationId, slot, policy));
+}));
+
 app.post('/api/policy', protect, touchActivity, wrap(async (req, res) => {
-  const { type, policy } = req.body || {};
-  if (!['domestic', 'war'].includes(type)) {
-    return res.status(400).json({ error: 'type must be "domestic" or "war"' });
-  }
-  res.json(await service.setPolicy(req.nationId, type, policy));
+  const { slot, policy } = req.body || {};
+  if (!slot) return res.status(400).json({ error: 'slot required' });
+  res.json(await service.setPolicy(req.nationId, slot, policy));
 }));
 
 // ---- Ops ----

@@ -109,25 +109,27 @@ t('attrition maximises damage, minimises loot', () => {
 t('raid is the inverse', () => { eq(wt[2].m.infraDamage, 0.25); eq(wt[2].m.loot, 1.0); });
 
 console.log('\n-- War policies (strict tradeoffs) --');
-t('Attrition policy: +10% damage, -20% loot', () => {
-  const m = cbt.resolveModifiers({warType:'ordinary', attackerPolicy:'attrition'});
-  approx(m.infraDamage, 0.5*1.1, 1e-9);
-  approx(m.loot, 0.5*0.8, 1e-9);
+t('Blitzkrieg: +12% damage, +15% own casualties', () => {
+  const m = cbt.resolveModifiers({warType:'ordinary', attackerPolicy:'blitzkrieg'});
+  approx(m.infraDamage, 0.5*1.12, 1e-9);
+  approx(m.casualtiesTaken, 1.15, 1e-9);
 });
-t('Turtle: -10% damage taken, +20% loot lost', () => {
-  const m = cbt.resolveModifiers({warType:'ordinary', defenderPolicy:'turtle'});
-  approx(m.infraDamage, 0.5*0.9, 1e-9);
-  approx(m.loot, 0.5*1.2, 1e-9);
+t('Fortress Doctrine: -12% damage taken, -10% dealt', () => {
+  const m = cbt.resolveModifiers({warType:'ordinary', defenderPolicy:'fortress_doctrine'});
+  approx(m.infraDamage, 0.5*0.88, 1e-9);
+  // The defender's own offence suffers too — but that shows on THEIR attacks.
+  const asAttacker = cbt.resolveModifiers({warType:'ordinary', attackerPolicy:'fortress_doctrine'});
+  approx(asAttacker.infraDamage, 0.5*0.90, 1e-9);
 });
-t('Moneybags: -40% loot lost, +5% damage taken', () => {
-  const m = cbt.resolveModifiers({warType:'ordinary', defenderPolicy:'moneybags'});
-  approx(m.loot, 0.5*0.6, 1e-9);
-  approx(m.infraDamage, 0.5*1.05, 1e-9);
+t('Privateering: +25% loot, -15% damage dealt', () => {
+  const m = cbt.resolveModifiers({warType:'raid', attackerPolicy:'privateering'});
+  approx(m.loot, 1.0*1.25, 1e-9);
+  approx(m.infraDamage, 0.25*0.85, 1e-9);
 });
-t('Moneybags counters Pirate', () => {
-  const vsNormal = cbt.resolveModifiers({warType:'raid', attackerPolicy:'pirate'});
-  const vsMoneybags = cbt.resolveModifiers({warType:'raid', attackerPolicy:'pirate', defenderPolicy:'moneybags'});
-  if (!(vsMoneybags.loot < vsNormal.loot)) throw new Error('moneybags did not reduce pirate loot');
+t('BOTH sides\' doctrine applies at once', () => {
+  const both = cbt.resolveModifiers({
+    warType:'ordinary', attackerPolicy:'blitzkrieg', defenderPolicy:'fortress_doctrine'});
+  approx(both.infraDamage, 0.5*1.12*0.88, 1e-9);
 });
 t('Fortify raises attacker casualties 25%', () => {
   const m = cbt.resolveModifiers({defenderFortified:true});

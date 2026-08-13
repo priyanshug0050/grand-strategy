@@ -20,6 +20,7 @@
 'use strict';
 
 const C = require('./constants');
+const policy = require('./policy');
 
 // ============================================================================
 // INTERNAL HELPERS
@@ -90,7 +91,7 @@ function availableImprovementSlots(city) {
  *
  * @returns {{ok: boolean, reason?: string}}
  */
-function canBuildImprovement(city, improvementKey, count = 1) {
+function canBuildImprovement(city, improvementKey, count = 1, opts = {}) {
   const def = C.IMPROVEMENTS[improvementKey];
   if (!def) return { ok: false, reason: `Unknown improvement: ${improvementKey}` };
   assertNonNegative(count, 'count');
@@ -114,7 +115,62 @@ function canBuildImprovement(city, improvementKey, count = 1) {
     };
   }
 
-  return { ok: true };
+  // Materials, if a stockpile was supplied. Callers that only want to know
+  // "is there room for this?" can omit it — the cities page does that to grey
+  // out buttons before the player has committed to a quantity.
+  if (opts.stockpile) {
+    const cost = improvementCost(improvementKey, count, opts);
+    const missing = {};
+    let short = false;
+
+    for (const [resource, needed] of Object.entries(cost.materials)) {
+      const have = opts.stockpile[resource] || 0;
+      if (have < needed) { missing[resource] = round2(needed - have); short = true; }
+    }
+    if (short) {
+      const list = Object.entries(missing).map(([r, n]) => `${n} ${r}`).join(', ');
+      return {
+        ok: false,
+        reason: `Not enough materials — short ${list}. Refine them or buy on the market.`,
+        missing,
+        cost,
+      };
+    }
+  }
+
+  return { ok: true, cost: improvementCost(improvementKey, count, opts) };
+}
+
+/**
+ * What one or more of an improvement costs, in money AND materials.
+ *
+ * Commerce, civil and military buildings consume refined goods. That is what
+ * gives steel and aluminum a use inside your own borders — without it a nation
+ * could refine endlessly and have nothing to spend the output on, and a rich
+ * player could skip industry entirely.
+ *
+ * Raw and manufacturing buildings have no material cost by design: a steel
+ * mill that needs steel is a trap a new player can never climb out of.
+ */
+function improvementCost(improvementKey, count = 1, opts = {}) {
+  const def = C.IMPROVEMENTS[improvementKey];
+  if (!def) throw new Error(`Unknown improvement: ${improvementKey}`);
+  assertNonNegative(count, 'count');
+
+  const materialMultiplier = policyMultiplier(opts, 'materialCostMultiplier');
+
+  const materials = {};
+  for (const [resource, amount] of Object.entries(def.materials || {})) {
+    materials[resource] = round2(amount * count * materialMultiplier);
+  }
+
+  return {
+    money: round2(def.cost * count),
+    materials,
+    // True when this building needs nothing but cash — useful for the UI,
+    // which shows a simpler line in that case.
+    moneyOnly: Object.keys(materials).length === 0,
+  };
 }
 
 // ============================================================================
@@ -184,17 +240,42 @@ function infraPurchaseCost(from, to, opts = {}) {
  */
 function applyInfraDiscounts(cost, opts = {}) {
   const projects = opts.projects || [];
-  const domestic = opts.policies && opts.policies.domestic;
   let multiplier = 1;
 
   if (projects.includes('center_for_civil_engineering')) {
     multiplier *= C.PROJECTS.center_for_civil_engineering.effect.infraCostMultiplier;
   }
-  if (domestic === 'urbanization') {
-    multiplier *= C.DOMESTIC_POLICIES.urbanization.infraCostMultiplier;
-  }
+
+  // Policy effects arrive as one flat object from policy.js. Nothing here
+  // needs to know WHICH policy is running — only the coefficient it produced.
+  multiplier *= policyMultiplier(opts, 'infraCostMultiplier');
 
   return cost * multiplier;
+}
+
+/**
+ * Pull one coefficient out of the active policy set.
+ *
+ * Callers pass either a resolved `policyEffects` object (cheap, when they
+ * already computed it) or the raw policy selection (convenient). Supporting
+ * both keeps call sites short without recomputing on every cost lookup.
+ */
+function policyMultiplier(opts, key) {
+  if (opts.policyEffects) return opts.policyEffects[key] ?? 1;
+  if (!opts.policies) return 1;
+  return policy.policyEffects(opts.policies, {
+    amplification: policyAmplification(opts.projects),
+  }).effects[key] ?? 1;
+}
+
+/** Projects that strengthen whatever policy you are running. */
+function policyAmplification(projects = []) {
+  let amp = 0;
+  for (const key of projects) {
+    const effect = C.PROJECTS[key]?.effect?.domesticPolicyBonus;
+    if (effect) amp += effect;
+  }
+  return amp;
 }
 
 /**
@@ -275,13 +356,7 @@ function landPurchaseCost(from, to, opts = {}) {
 }
 
 function applyLandDiscounts(cost, opts = {}) {
-  const domestic = opts.policies && opts.policies.domestic;
-  let multiplier = 1;
-
-  if (domestic === 'rapid_expansion') {   // PLACEHOLDER policy
-    multiplier *= C.DOMESTIC_POLICIES.rapid_expansion.landCostMultiplier;
-  }
-  return cost * multiplier;
+  return cost * policyMultiplier(opts, 'landCostMultiplier');
 }
 
 /**
@@ -342,15 +417,10 @@ function nextCityCost(currentCityCount, opts = {}) {
   }
 
   // --- Step 2: percentage policy discount, applied AFTER the flat ones ---
-  const domestic = opts.policies && opts.policies.domestic;
-  if (domestic === 'manifest_destiny') {
-    let reduction = 1 - C.DOMESTIC_POLICIES.manifest_destiny.cityCostMultiplier; // 0.05
-    // Government Support Agency amplifies domestic policy: -5% becomes -7.5%
-    if (projects.includes('government_support_agency')) {
-      reduction *= 1 + C.PROJECTS.government_support_agency.effect.domesticPolicyBonus;
-    }
-    cost *= 1 - reduction;
-  }
+  //
+  // Order still matters: applying the percentage first gives a materially
+  // different (wrong) answer. See the comment above.
+  cost *= policyMultiplier(opts, 'cityCostMultiplier');
 
   // --- Step 3: floor ---
   return round2(Math.max(cost, CITY_COST_FLOOR));
@@ -496,6 +566,9 @@ module.exports = {
   usedImprovementSlots,
   availableImprovementSlots,
   canBuildImprovement,
+  improvementCost,
+  policyMultiplier,
+  policyAmplification,
 
   // infrastructure
   infraUnitCost,

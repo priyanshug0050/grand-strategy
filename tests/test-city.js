@@ -1,3 +1,4 @@
+const C = require('../src/engine/constants');
 const city = require('../src/engine/city');
 
 let pass = 0, fail = 0;
@@ -36,10 +37,13 @@ t('backwards purchase is free', () => eq(city.infraPurchaseCost(500, 200), 0));
 console.log('\n-- Infra discounts --');
 const plain = city.infraPurchaseCost(1000, 1100);
 const disc = city.infraPurchaseCost(1000, 1100, {
-  projects: ['center_for_civil_engineering'], policies: { domestic: 'urbanization' }
+  projects: ['center_for_civil_engineering'], policies: { economic: 'urbanisation' }
 });
 console.log(`    plain $${plain.toLocaleString()} -> both discounts $${disc.toLocaleString()}`);
-t('discounts multiplicative (0.95*0.95=0.9025)', () => approx(disc/plain, 0.9025, 0.0001));
+t('project and policy discounts are multiplicative', () => {
+  // Center for Civil Engineering (-5%) x Urbanisation (-8%) = 0.874
+  approx(disc/plain, 0.95 * 0.92, 0.0001);
+});
 
 console.log('\n-- Land --');
 console.log(`    unit cost @250 land: $${city.landUnitCost(250).toFixed(2)}`);
@@ -76,9 +80,9 @@ console.log('\n-- Discount ORDER (the bug source) --');
 const base = city.nextCityCost(20);
 const correct = city.nextCityCost(20, {
   projects: ['urban_planning', 'advanced_urban_planning'],
-  policies: { domestic: 'manifest_destiny' }
+  policies: { economic: 'manifest_destiny' }
 });
-const wrongOrder = (base * 0.95) - 150000000;
+const wrongOrder = (base * 0.92) - 150000000;
 console.log(`    base:            $${base.toLocaleString()}`);
 console.log(`    correct order:   $${correct.toLocaleString()}`);
 console.log(`    wrong order:     $${wrongOrder.toLocaleString()}`);
@@ -91,13 +95,15 @@ t('flat discounts stack', () => {
   const two = city.nextCityCost(20, { projects: ['urban_planning','advanced_urban_planning'] });
   approx(one - two, 100000000, 1);
 });
-t('Govt Support Agency turns -5% into -7.5%', () => {
-  const md = city.nextCityCost(20, { policies: { domestic: 'manifest_destiny' } });
+t('Govt Support Agency amplifies the policy GAIN', () => {
+  // Manifest Destiny cuts city cost 8%. The project amplifies that deviation
+  // by 50%, so -8% becomes -12%.
+  const md = city.nextCityCost(20, { policies: { economic: 'manifest_destiny' } });
   const gsa = city.nextCityCost(20, {
-    projects: ['government_support_agency'], policies: { domestic: 'manifest_destiny' }
+    projects: ['government_support_agency'], policies: { economic: 'manifest_destiny' }
   });
-  approx(md / base, 0.95, 0.0001, 'MD alone:');
-  approx(gsa / base, 0.925, 0.0001, 'MD+GSA:');
+  approx(md / base, 0.92, 0.0001, 'MD alone:');
+  approx(gsa / base, 0.88, 0.0001, 'MD amplified:');
 });
 t('floors at $1, never negative', () => {
   const c = city.nextCityCost(2, {
@@ -126,6 +132,55 @@ t('unknown improvement rejected', () => eq(city.canBuildImprovement(c, 'death_st
 c.improvements = { coal_mine: 10, farm: 10 };
 t('slot accounting correct', () => eq(city.availableImprovementSlots(c), 0));
 t('validate passes', () => eq(city.validateCity(c).valid, true));
+
+console.log('\n-- MATERIAL COSTS --');
+t('commerce/civil/military need materials', () => {
+  for (const [key, def] of Object.entries(C.IMPROVEMENTS)) {
+    if (!['commerce','civil','military'].includes(def.category)) continue;
+    if (key === 'barracks') continue;   // deliberately material-free
+    const cost = city.improvementCost(key, 1);
+    if (cost.moneyOnly) throw new Error(`${key} still costs money only`);
+  }
+});
+t('raw and manufacturing do NOT (no chicken-and-egg)', () => {
+  for (const [key, def] of Object.entries(C.IMPROVEMENTS)) {
+    if (!['raw','manufacturing'].includes(def.category)) continue;
+    if (!city.improvementCost(key, 1).moneyOnly) {
+      throw new Error(`${key} requires materials — a new player could never build it`);
+    }
+  }
+});
+t('barracks stay free of materials (last-resort defence)', () => {
+  eq(city.improvementCost('barracks', 1).moneyOnly, true);
+});
+t('cost scales with count', () => {
+  const one = city.improvementCost('bank', 1);
+  const three = city.improvementCost('bank', 3);
+  eq(three.money, one.money * 3);
+  eq(three.materials.steel, one.materials.steel * 3);
+});
+t('build BLOCKED without materials, and says what is short', () => {
+  const c = { infrastructure: 1000, land: 2000, improvements: {} };
+  const r = city.canBuildImprovement(c, 'bank', 1, { stockpile: {} });
+  eq(r.ok, false);
+  if (!r.missing.steel) throw new Error('did not report missing steel');
+  if (!r.reason.includes('steel')) throw new Error('reason does not name the resource');
+});
+t('build ALLOWED with materials', () => {
+  const c = { infrastructure: 1000, land: 2000, improvements: {} };
+  eq(city.canBuildImprovement(c, 'bank', 1, { stockpile: { steel: 100, aluminum: 100 } }).ok, true);
+});
+t('omitting the stockpile skips the material check', () => {
+  // The UI calls it this way to test slot capacity alone.
+  const c = { infrastructure: 1000, land: 2000, improvements: {} };
+  eq(city.canBuildImprovement(c, 'bank', 1).ok, true);
+});
+t('slot limits still bite before materials are considered', () => {
+  const c = { infrastructure: 10, land: 250, improvements: {} };
+  const r = city.canBuildImprovement(c, 'bank', 1, { stockpile: { steel: 1e6, aluminum: 1e6 } });
+  eq(r.ok, false);
+  if (!r.reason.includes('slot')) throw new Error('should fail on slots: ' + r.reason);
+});
 
 console.log('\n-- War damage edge case --');
 c.infrastructure = 100;  // nuked from 1000

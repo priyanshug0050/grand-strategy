@@ -54,6 +54,7 @@ const economy = require('./economy');
 const military = require('./military');
 const combat = require('./combat');
 const modifiers = require('./modifiers');
+const policyEngine = require('./policy');
 
 /**
  * Which layer owns what. Mirrors the 4-layer design: cheap things run often,
@@ -103,12 +104,20 @@ function snapshot(nation, currentTurn, opts = {}) {
   const projects = nation.projects || [];
   const effects = modifiers.aggregateProjectEffects(projects);
   const policies = nation.policies || {};
+
+  // Resolve the policy set ONCE per snapshot and pass the result down. Every
+  // cost and production function would otherwise recompute it — the same
+  // arithmetic, dozens of times per turn per nation.
+  const policyResult = policyEngine.policyEffects(policies, {
+    amplification: effects.domesticPolicyBonus || 0,
+  });
+  const policyEffects = policyResult.effects;
   const cities = nation.cities || [];
 
   const perCity = cities.map(c => {
     const ageDays = cityAgeDays(c, currentTurn);
-    const pollution = economy.pollutionIndex(c, { projects });
-    const commerce = economy.commerceRate(c, { projects });
+    const pollution = economy.pollutionIndex(c, { projects, policyEffects });
+    const commerce = economy.commerceRate(c, { projects, policyEffects });
 
     const popBreakdown = population.populationBreakdown(c, {
       cityAgeDays: ageDays,
@@ -116,6 +125,7 @@ function snapshot(nation, currentTurn, opts = {}) {
       radiation: opts.radiation || 0,
       commerce,
       projects,
+      policyEffects,
     });
 
     return {
@@ -146,6 +156,7 @@ function snapshot(nation, currentTurn, opts = {}) {
   const revenue = economy.nationRevenue(cities, populations, {
     projects,
     policies,
+    policyEffects,
     units: nation.units,
     atWar: opts.atWar || false,
     stockpile: nation.stockpile,
@@ -167,6 +178,8 @@ function snapshot(nation, currentTurn, opts = {}) {
     revenue,
     colorState,
     projectEffects: effects,
+    policyEffects,
+    activePolicies: policyResult.applied,
     offensiveWarSlots: military.offensiveWarSlots(projects),
   };
 }
