@@ -521,6 +521,57 @@ async function cleanup() {
     }
   });
 
+  console.log('\n-- Mobile --');
+
+  await t('mobile.css is served', async () => {
+    const r = await get('/css/mobile.css');
+    eq(r.status, 200);
+    has(r.body, '@media (max-width: 640px)', 'mobile.css');
+    has(r.body, 'data-label', 'mobile.css');
+  });
+
+  await t('EVERY page loads mobile.css, and AFTER app.css', async () => {
+    // Order matters: mobile.css overrides, so it must come second.
+    for (const p of ['/index.html','/dashboard.html','/cities.html','/economy.html',
+                     '/policy.html','/market.html','/military.html','/admin.html']) {
+      const r = await get(p);
+      if (!r.body.includes('mobile.css')) throw new Error(`${p} does not load mobile.css`);
+      if (r.body.indexOf('app.css') > r.body.indexOf('mobile.css')) {
+        throw new Error(`${p} loads mobile.css BEFORE app.css — overrides will not apply`);
+      }
+    }
+  });
+
+  await t('every page declares a viewport', async () => {
+    // Without this a phone renders at 980px and scales down — everything
+    // becomes unreadably small regardless of the CSS.
+    for (const p of ['/index.html','/dashboard.html','/cities.html','/economy.html',
+                     '/policy.html','/market.html','/military.html','/admin.html']) {
+      const r = await get(p);
+      if (!r.body.includes('name="viewport"')) throw new Error(`${p} has no viewport meta`);
+      if (!r.body.includes('width=device-width')) throw new Error(`${p} viewport is not device-width`);
+    }
+  });
+
+  await t('CARD LABELS: wide tables emit data-label so rows read as cards', async () => {
+    // On phones these tables become cards and the column header is pulled from
+    // data-label. Without it a card is a column of unlabelled numbers.
+    const checks = [
+      ['/js/economy.js', ['Stockpile', 'Produced', 'Consumed', 'Net /turn', 'Runway']],
+      ['/js/market.js', ['You hold', 'Bid', 'Ask', 'Last', 'Change']],
+      ['/js/military.js', ['Score', 'Cities', 'Infrastructure']],
+      ['/js/admin.js', ['Email', 'Money', 'Status']],
+    ];
+    for (const [file, labels] of checks) {
+      const r = await get(file);
+      for (const label of labels) {
+        if (!r.body.includes(`data-label="${label}"`)) {
+          throw new Error(`${file} is missing data-label="${label}"`);
+        }
+      }
+    }
+  });
+
   console.log('\n-- Policy --');
 
   await t('policy.html loads', async () => {

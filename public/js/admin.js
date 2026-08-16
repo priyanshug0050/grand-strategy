@@ -85,11 +85,11 @@
           ${r.nations.map(n => `
             <tr class="${n.isDeleted || n.isBanned ? 'dim' : ''}">
               <td class="res-name">${escapeHtml(n.name)}</td>
-              <td class="num muted">${escapeHtml(n.email)}</td>
-              <td class="num">${n.cities}</td>
-              <td class="num">${Fmt.int(n.infrastructure)}</td>
-              <td class="num">${Fmt.money(n.money)}</td>
-              <td class="num">
+              <td class="num muted" data-label="Email">${escapeHtml(n.email)}</td>
+              <td class="num" data-label="Cities">${n.cities}</td>
+              <td class="num" data-label="Infrastructure">${Fmt.int(n.infrastructure)}</td>
+              <td class="num" data-label="Money">${Fmt.money(n.money)}</td>
+              <td class="num" data-label="Status">
                 ${n.isAdmin ? '<span class="badge">admin</span>' : ''}
                 ${n.isBanned ? '<span class="badge poll">banned</span>' : ''}
                 ${n.onBeige ? '<span class="badge">beige</span>' : ''}
@@ -282,10 +282,10 @@
                         <th>Target</th><th>Change</th><th>Reason</th></tr></thead>
              <tbody>${r.entries.map(e => `
                <tr>
-                 <td class="num muted">${new Date(e.created_at).toLocaleString()}</td>
-                 <td class="num">${escapeHtml(e.admin_email)}</td>
+                 <td class="num muted" data-label="When">${new Date(e.created_at).toLocaleString()}</td>
+                 <td class="num" data-label="Admin">${escapeHtml(e.admin_email)}</td>
                  <td class="res-name">${escapeHtml(e.action)}</td>
-                 <td class="num">${escapeHtml(e.target_name || '—')}</td>
+                 <td class="num" data-label="Target">${escapeHtml(e.target_name || '—')}</td>
                  <td class="num muted" style="font-size:.66rem">
                    ${e.before_value ? escapeHtml(JSON.stringify(e.before_value)) : ''}
                    ${e.after_value ? '→ ' + escapeHtml(JSON.stringify(e.after_value)) : ''}

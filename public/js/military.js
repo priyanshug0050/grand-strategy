@@ -271,10 +271,10 @@
         <tbody>
         ${d.targets.map(t => `
           <tr class="${t.attackable ? '' : 'blocked'}">
-            <td>${escapeHtml(t.name)}</td>
-            <td class="num">${Fmt.dec(t.score,1)}</td>
-            <td class="num">${t.cities}</td>
-            <td class="num">${Fmt.int(t.infrastructure)}</td>
+            <td class="res-name">${escapeHtml(t.name)}</td>
+            <td class="num" data-label="Score">${Fmt.dec(t.score,1)}</td>
+            <td class="num" data-label="Cities">${t.cities}</td>
+            <td class="num" data-label="Infrastructure">${Fmt.int(t.infrastructure)}</td>
             <td>
               ${t.attackable
                 ? `<select data-wartype="${t.id}">

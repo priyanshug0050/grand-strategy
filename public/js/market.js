@@ -206,16 +206,21 @@
           const held = sp[r.resource] || 0;
           const delta = flow[r.resource] || 0;
           const deltaCls = delta > 0.0001 ? 'pos' : delta < -0.0001 ? 'neg' : '';
+          // A resource with no market, no holdings and no flow is noise. On a
+          // phone each row becomes a card, so eleven of them is three screens
+          // of scrolling before anything worth reading.
+          const idle = r.bid === null && r.ask === null && r.tradeCount === 0
+                     && held === 0 && Math.abs(delta) < 0.0001;
           return `
-            <tr class="${r.resource === resource ? 'selected' : ''}" data-res="${r.resource}">
+            <tr class="${r.resource === resource ? 'selected' : ''} ${idle ? 'dim' : ''}" data-res="${r.resource}">
               <td class="res-name">${Fmt.label(r.resource)}</td>
-              <td class="num">${Fmt.dec(held, held < 100 ? 1 : 0)}</td>
-              <td class="num ${deltaCls}">${Fmt.signed(delta)}</td>
-              <td class="num bid">${r.bid !== null ? Fmt.money(r.bid) : '—'}</td>
-              <td class="num ask">${r.ask !== null ? Fmt.money(r.ask) : '—'}</td>
-              <td class="num">${r.current !== null && r.current !== undefined ? Fmt.money(r.current)
+              <td class="num" data-label="You hold">${Fmt.dec(held, held < 100 ? 1 : 0)}</td>
+              <td class="num ${deltaCls}" data-label="Per turn">${Fmt.signed(delta)}</td>
+              <td class="num bid" data-label="Bid">${r.bid !== null ? Fmt.money(r.bid) : '—'}</td>
+              <td class="num ask" data-label="Ask">${r.ask !== null ? Fmt.money(r.ask) : '—'}</td>
+              <td class="num" data-label="Last">${r.current !== null && r.current !== undefined ? Fmt.money(r.current)
                 : r.medianPrice !== null ? Fmt.money(r.medianPrice) : '—'}</td>
-              <td class="num chg ${r.direction || 'flat'}">${r.changePercent !== null && r.changePercent !== undefined
+              <td class="num chg ${r.direction || 'flat'}" data-label="Change">${r.changePercent !== null && r.changePercent !== undefined
                 ? ARROW[r.direction] + ' ' + (r.changePercent > 0 ? '+' : '') + Fmt.dec(r.changePercent,1) + '%' : '—'}</td>
               <td class="spark-cell">${sparkline(r.spark, r.direction)}</td>
               <td><button data-open="${r.resource}">Trade</button></td>

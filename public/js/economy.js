@@ -156,11 +156,11 @@
           return `
             <tr class="${idle ? 'dim' : ''}">
               <td class="res-name">${Fmt.label(r)}</td>
-              <td class="num">${Fmt.dec(f.stockpile, f.stockpile < 100 ? 1 : 0)}</td>
-              <td class="num pos">${f.producedPerTurn > 0 ? '+' + Fmt.dec(f.producedPerTurn,2) : '—'}</td>
-              <td class="num neg">${f.consumedPerTurn > 0 ? '−' + Fmt.dec(f.consumedPerTurn,2) : '—'}</td>
-              <td class="num ${netCls}"><strong>${Fmt.signed(f.netPerTurn)}</strong></td>
-              <td class="num ${runwayCls}">${runway}</td>
+              <td class="num" data-label="Stockpile">${Fmt.dec(f.stockpile, f.stockpile < 100 ? 1 : 0)}</td>
+              <td class="num pos" data-label="Produced">${f.producedPerTurn > 0 ? '+' + Fmt.dec(f.producedPerTurn,2) : '—'}</td>
+              <td class="num neg" data-label="Consumed">${f.consumedPerTurn > 0 ? '−' + Fmt.dec(f.consumedPerTurn,2) : '—'}</td>
+              <td class="num ${netCls}" data-label="Net /turn"><strong>${Fmt.signed(f.netPerTurn)}</strong></td>
+              <td class="num ${runwayCls}" data-label="Runway">${runway}</td>
             </tr>`;
         }).join('')}
         </tbody>
@@ -297,10 +297,10 @@
               <td class="res-name">${Fmt.label(l.key)}
                 ${pollution ? `<span class="badge poll">${pollution.value} pollution</span>` : ''}
               </td>
-              <td class="num">${l.count}</td>
-              <td class="num">${a}</td>
-              <td class="num">${b}</td>
-              <td class="num">${l.upkeepPerDay ? Fmt.money(l.upkeepPerDay) : '<span class="muted">—</span>'}</td>
+              <td class="num" data-label="Built">${l.count}</td>
+              <td class="num" data-label="${escapeHtml(cols[0])}">${a}</td>
+              <td class="num" data-label="${escapeHtml(cols[1])}">${b}</td>
+              <td class="num" data-label="Upkeep /day">${l.upkeepPerDay ? Fmt.money(l.upkeepPerDay) : '<span class="muted">—</span>'}</td>
             </tr>`;
           }).join('')}
           </tbody>

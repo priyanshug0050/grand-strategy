@@ -1,0 +1,359 @@
+/* ==========================================================================
+   mobile.css — small-screen layout
+
+   Loaded AFTER app.css on every page, so everything here overrides. Keeping
+   it separate means the desktop stylesheet stays readable and mobile changes
+   can be reviewed on their own.
+
+   ---------------------------------------------------------------------------
+   THE ONE PROBLEM THIS FILE MOSTLY SOLVES
+   ---------------------------------------------------------------------------
+   This game is tables. The economy ledger has six columns, the market overview
+   has nine. On a 380px screen a six-column table is unreadable at any font
+   size that a person can actually read — squeezing it just produces six
+   columns of clipped text.
+
+   So on phones the wide tables stop being tables. Each row becomes a card, and
+   the column HEADERS become labels inside it, using data-label attributes the
+   JavaScript already has to emit. The information is identical; only the shape
+   changes.
+
+   Where a table IS narrow enough (three columns or fewer) it stays a table,
+   because a table is genuinely better when it fits.
+
+   ---------------------------------------------------------------------------
+   BREAKPOINTS
+   ---------------------------------------------------------------------------
+     900px  tablets and small laptops — two-column layouts collapse
+     640px  phones — tables become cards, nav becomes a bar
+     380px  small phones — tighten padding, drop to one column everywhere
+
+   No max-width breakpoints above 900px: the desktop layout is already fluid
+   and adding a "large" breakpoint would only invent a third thing to maintain.
+   ========================================================================== */
+
+/* ==========================================================================
+   TABLETS — 900px
+   ========================================================================== */
+
+@media (max-width: 900px) {
+
+  .wrap { padding: 1.25rem 1rem 3rem; }
+
+  /* Two-column page layouts stack. The right-hand column is always the
+     secondary one (stockpile, log, order form), so it goes underneath. */
+  .grid.two { grid-template-columns: 1fr; }
+
+  .effect-split { grid-template-columns: 1fr; gap: 1rem; }
+  .admin-grid { grid-template-columns: 1fr; }
+
+  /* Cards get narrower minimums so two still fit rather than dropping to one
+     with a lot of dead space. */
+  .grid.cards { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .policy-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .impgrid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+}
+
+/* ==========================================================================
+   PHONES — 640px
+   ========================================================================== */
+
+@media (max-width: 640px) {
+
+  body { font-size: 15px; }
+  .wrap { padding: 1rem .75rem 3rem; }
+
+  /* ---------- Header ----------
+     Six nav links will not fit on one line with a brand and a clock. The bar
+     becomes three stacked rows: brand, clock, then a scrolling link strip.
+     Scrolling beats wrapping here — wrapped links push the page content down
+     by three lines on every single screen. */
+
+  .topbar {
+    flex-direction: column; align-items: stretch; gap: .5rem;
+    padding: .6rem .75rem;
+    position: sticky; top: 0;
+  }
+  .topbar .brand { font-size: .95rem; }
+
+  .clock { justify-content: flex-start; }
+  .clock .turn { font-size: .9rem; }
+  .clock .until { font-size: .7rem; }
+
+  .topbar nav {
+    width: 100%; margin-left: 0;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    gap: 0;
+    /* Hide the scrollbar but keep the scrolling — a visible bar under six
+       links looks like a rendering fault on mobile. */
+    scrollbar-width: none;
+    border-top: 1px solid var(--line); padding-top: .5rem;
+  }
+  .topbar nav::-webkit-scrollbar { display: none; }
+  .topbar nav a {
+    flex: 0 0 auto; padding: .35rem .7rem;
+    border-bottom: 2px solid transparent; white-space: nowrap;
+  }
+  .topbar nav a[aria-current="page"] { border-bottom-width: 2px; }
+
+  /* ---------- Type ---------- */
+
+  h1 { font-size: 1.4rem; }
+  h2 { font-size: 1rem; }
+
+  /* ---------- Panels ---------- */
+
+  .panel > header { padding: .6rem .8rem; flex-wrap: wrap; gap: .3rem; }
+  .panel > .body { padding: .8rem; }
+
+  /* ---------- Vitals ----------
+     Two across rather than auto-fit. auto-fit at 150px gives two on most
+     phones anyway, but on a 320px screen it gives one, and a single vital per
+     row wastes the whole width. */
+
+  .vitals { grid-template-columns: 1fr 1fr; }
+  .vital { padding: .7rem .8rem; }
+  .vital .value { font-size: 1.15rem; }
+
+  /* ---------- WIDE TABLES BECOME CARDS ----------
+     This is the main event. Each <tr> becomes a bordered block; each <td>
+     becomes a labelled row inside it, with the label coming from the
+     data-label attribute the JS emits.
+
+     Applies only to tables with more than three columns. Narrow ones are
+     handled further down and stay as tables. */
+
+  table.ledger-table,
+  table.market-overview,
+  table.targets {
+    display: block;
+  }
+  table.ledger-table thead,
+  table.market-overview thead,
+  table.targets thead {
+    /* Not display:none — that removes it from the accessibility tree too.
+       Clipping keeps it available to screen readers. */
+    position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  table.ledger-table tbody,
+  table.market-overview tbody,
+  table.targets tbody { display: block; }
+
+  table.ledger-table tr,
+  table.market-overview tr,
+  table.targets tr {
+    display: block;
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--brass);
+    margin-bottom: .5rem;
+    padding: .5rem .65rem;
+    background: var(--panel);
+  }
+
+  table.ledger-table td,
+  table.market-overview td,
+  table.targets td {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 1rem;
+    border: 0; border-bottom: 1px solid rgba(44,58,68,.5);
+    padding: .3rem 0; text-align: right;
+  }
+  table.ledger-table tr td:last-child,
+  table.market-overview tr td:last-child,
+  table.targets tr td:last-child { border-bottom: 0; }
+
+  /* The label, pulled from data-label. Cells with no label (buttons, actions)
+     simply span the full width instead. */
+  table.ledger-table td::before,
+  table.market-overview td::before,
+  table.targets td::before {
+    content: attr(data-label);
+    font-family: var(--data); font-size: .62rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--chalk-dim); text-align: left; flex: 0 0 auto;
+  }
+  table.ledger-table td:not([data-label]),
+  table.market-overview td:not([data-label]),
+  table.targets td:not([data-label]) {
+    justify-content: flex-start;
+  }
+
+  /* The first cell is the row's identity — make it the card's heading. */
+  table.ledger-table td.res-name,
+  table.market-overview td.res-name {
+    display: block; text-align: left;
+    font-size: .9rem; color: var(--phosphor);
+    border-bottom: 1px solid var(--brass-dim);
+    padding-bottom: .35rem; margin-bottom: .35rem;
+  }
+  table.ledger-table td.res-name::before,
+  table.market-overview td.res-name::before { content: none; }
+
+  /* Buttons and selects inside a card row get room to be tapped. */
+  table.targets td select,
+  table.targets td button,
+  table.market-overview td button {
+    min-height: 38px; font-size: .72rem;
+  }
+  table.targets td select { width: auto; margin-right: .4rem; }
+
+  /* Sparklines are decorative — at this width they are two pixels of noise. */
+  .spark-cell { display: none !important; }
+
+  /* Rows the game has already dimmed (a resource you neither produce, consume
+     nor hold) collapse to one line instead of a full card.
+     
+     On desktop a dim row costs one line in a table. As a card it costs six,
+     and on the economy page that turned six irrelevant resources into three
+     screens of scrolling before the numbers that matter. */
+  table.ledger-table tr.dim,
+  table.market-overview tr.dim {
+    padding: .3rem .65rem;
+    border-left-color: var(--line);
+    opacity: .45;
+  }
+  table.ledger-table tr.dim td:not(.res-name),
+  table.market-overview tr.dim td:not(.res-name) { display: none; }
+  table.ledger-table tr.dim td.res-name,
+  table.market-overview tr.dim td.res-name {
+    border-bottom: 0; padding-bottom: 0; margin-bottom: 0;
+    font-size: .78rem; color: var(--chalk-dim);
+  }
+  /* Say why it collapsed, so it does not look like a rendering fault. */
+  table.ledger-table tr.dim td.res-name::after {
+    content: ' — none';
+    font-family: var(--data); font-size: .62rem; color: var(--chalk-dim);
+  }
+
+  /* Recent trades is only four narrow columns; it survives as a table. */
+  table.trades { font-size: .7rem; }
+  table.trades th, table.trades td { padding: .3rem .35rem; }
+
+  /* ---------- Market ---------- */
+
+  .ticker { margin-bottom: 1rem; }
+  .tick { min-width: 116px; padding: .5rem .65rem; }
+  .tick .px { font-size: .85rem; }
+
+  /* The book stays a three-column grid — it genuinely needs the alignment,
+     and three columns fit. Just tighten it. */
+  .book-head, .level { grid-template-columns: 1fr 1fr 1fr; gap: .3rem; padding-left: .35rem; padding-right: .35rem; }
+  .level .q, .level .v { font-size: .7rem; }
+  .level { padding-top: .38rem; padding-bottom: .38rem; }   /* taller tap target */
+
+  svg.pricechart { height: 150px; }
+
+  /* ---------- Cities ---------- */
+
+  .citytabs { }
+  .citytab { min-width: 120px; padding: .6rem .7rem; }
+  .citytab .nm { font-size: .85rem; }
+
+  /* Twenty-seven improvements is a genuinely long page. Two columns keeps it
+     scannable; one column would double an already-tall page for no gain. */
+  .impgrid { grid-template-columns: 1fr 1fr; }
+  .imp { padding: .55rem .6rem; }
+
+  /* Category headers stick while you scroll their section, so you always know
+     whether you are looking at power plants or commerce. */
+  .impgroup-head {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--void); padding-top: .4rem;
+  }
+  .imp-head .nm { font-size: .76rem; }
+  .imp-effect { font-size: .62rem; }
+  .imp-actions button { min-height: 34px; }
+
+  .city .stats { grid-template-columns: 1fr 1fr; }
+
+  /* ---------- Policy ---------- */
+
+  .policy-grid { grid-template-columns: 1fr; }
+  .policy { padding: .7rem .8rem; }
+
+  /* ---------- Military ---------- */
+
+  .resist .r { grid-template-columns: 90px 1fr 40px; gap: .4rem; }
+  .attack-buttons button { min-width: 0; flex: 1 1 100%; min-height: 40px; }
+  .recruit-row { flex-direction: column; align-items: stretch; gap: .5rem; }
+  .recruit-row .row-controls { justify-content: stretch; }
+  .recruit-row input { flex: 1; }
+
+  /* ---------- Economy ---------- */
+
+  .citycard-body { grid-template-columns: 1fr; }
+  .attr-head { flex-wrap: wrap; gap: .2rem; }
+
+  /* ---------- Forms ----------
+     16px minimum on inputs, otherwise iOS Safari zooms the whole page when a
+     field is focused and the player has to pinch back out every time. */
+
+  input, select { font-size: 16px; min-height: 42px; }
+  button, .btn { min-height: 40px; padding: .55rem .8rem; }
+  .row-controls { flex-wrap: wrap; }
+  .row-controls .field { min-width: 130px; }
+
+  /* ---------- Ledgers ---------- */
+
+  .ledger { font-size: .74rem; padding: .7rem .8rem; }
+  .ledger .row { gap: .8rem; }
+
+  /* ---------- Admin ---------- */
+
+  .admin-res-grid { grid-template-columns: 1fr 1fr; }
+  .admin-war { flex-direction: column; align-items: stretch; gap: .4rem; }
+}
+
+/* ==========================================================================
+   SMALL PHONES — 380px
+   ========================================================================== */
+
+@media (max-width: 380px) {
+
+  .wrap { padding: .85rem .6rem 2.5rem; }
+
+  .vitals { grid-template-columns: 1fr; }
+  .impgrid { grid-template-columns: 1fr; }
+  .admin-res-grid { grid-template-columns: 1fr; }
+  .res { grid-template-columns: 1fr 1fr; }
+
+  h1 { font-size: 1.25rem; }
+  .panel > .body { padding: .65rem; }
+
+  .tick { min-width: 100px; }
+  .citytab { min-width: 100px; }
+
+  /* At this width a three-column book is three cramped columns. Drop the
+     value column — price and quantity are what you trade on; value is
+     derivable and rarely read. */
+  .book-head, .level { grid-template-columns: 1fr 1fr; }
+  .book-head span:last-child, .level .v { display: none; }
+}
+
+/* ==========================================================================
+   TOUCH DEVICES — any size
+   ========================================================================== */
+
+@media (hover: none) {
+  /* Hover styling never clears on a touch screen: tap a row and it stays
+     highlighted until you tap elsewhere, which reads as "selected". */
+  .level:hover { background: none; }
+  table.market-overview tr:hover { background: inherit; }
+  .imp:hover, .policy:hover { background: inherit; }
+
+  /* The derivation ledger is the signature interaction and it must be
+     tappable, not just hoverable. */
+  .derived { padding: .2rem 0; }
+  .derived::after { font-size: .7rem; }
+}
+
+/* ==========================================================================
+   LANDSCAPE PHONES
+   ========================================================================== */
+
+@media (max-height: 480px) and (orientation: landscape) {
+  /* A sticky three-row header eats half a landscape phone screen. */
+  .topbar { position: static; }
+  .wrap { padding-top: .75rem; }
+}
