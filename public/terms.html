@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terms of Service — SOVRA</title>
+<meta name="description" content="The rules of SOVRA: eligibility, one account per person, prohibited conduct, real-money trading, in-game items, moderation, availability and liability.">
+<link rel="canonical" href="https://playsovra.com/terms.html">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#08090C">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SOVRA">
+<meta property="og:title" content="Terms of Service — SOVRA">
+<meta property="og:description" content="The rules of SOVRA: eligibility, one account per person, prohibited conduct, real-money trading, in-game items, moderation, availability and liability.">
+<meta property="og:url" content="https://playsovra.com/terms.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08090C; --bg2:#0C0E13; --panel:#12151C; --panel2:#171B24;
+  --line:#232935; --line2:#2E3646;
+  --ink:#EEF1F6; --ink2:#A9B2C3; --ink3:#6E7994;
+  --gold:#F5B027; --gold-dim:#8A6413; --cyan:#4DA3FF; --red:#E2483D;
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+
+header{position:sticky;top:0;z-index:50;background:rgba(8,9,12,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .mark{font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;letter-spacing:.14em;color:var(--ink)}
+.brand .mark span{color:var(--gold)}
+.brand .sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+.navlinks{display:flex;align-items:center;gap:26px}
+.navlinks a{font-size:14px;font-weight:500;color:var(--ink2);text-decoration:none}
+.navlinks a:hover{color:var(--ink);text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;padding:9px 18px;border-radius:10px;border:1px solid transparent;background:var(--gold);color:#1A1204;text-decoration:none}
+.btn:hover{text-decoration:none}
+
+.doc-hero{padding:56px 0 34px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(245,176,39,.05),transparent)}
+.kicker{font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+h1{font-family:'Orbitron',sans-serif;font-weight:800;font-size:clamp(28px,5vw,42px);line-height:1.15;margin-bottom:14px}
+.meta{color:var(--ink3);font-size:14px}
+.meta b{color:var(--ink2);font-weight:600}
+
+.layout{display:grid;grid-template-columns:238px 1fr;gap:52px;padding:48px 0 90px;align-items:start}
+nav.toc{position:sticky;top:90px;border-left:1px solid var(--line);padding-left:18px}
+nav.toc h4{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;font-weight:700}
+nav.toc a{display:block;font-size:13.5px;color:var(--ink2);padding:5px 0;text-decoration:none;line-height:1.45}
+nav.toc a:hover{color:var(--gold);text-decoration:none}
+
+article{max-width:760px}
+article section{margin-bottom:44px;scroll-margin-top:92px}
+article h2{font-family:'Orbitron',sans-serif;font-weight:600;font-size:20px;letter-spacing:.01em;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+article h2 .num{color:var(--gold);margin-right:12px;font-family:'JetBrains Mono',monospace;font-size:15px}
+article h3{font-size:16px;font-weight:700;margin:24px 0 8px;color:var(--ink)}
+article p{color:var(--ink2);margin-bottom:14px}
+article ul,article ol{color:var(--ink2);margin:0 0 14px 20px}
+article li{margin-bottom:8px}
+article strong{color:var(--ink);font-weight:600}
+.note{background:var(--panel);border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:10px;padding:18px 20px;margin:18px 0}
+.note p{margin-bottom:0;font-size:14.5px}
+.note .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:8px}
+.warn{border-left-color:var(--red)}
+.warn .t{color:var(--red)}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:16px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th{background:var(--panel2);text-align:left;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);padding:12px 14px;font-weight:700}
+td{padding:12px 14px;border-top:1px solid var(--line);color:var(--ink2);vertical-align:top}
+td:first-child{color:var(--ink);font-weight:500;white-space:nowrap}
+.fill{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.92em;background:rgba(226,72,61,.10);padding:1px 6px;border-radius:4px}
+
+footer{border-top:1px solid var(--line);padding:40px 0;background:var(--bg2)}
+.legal{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--ink3);font-size:13px}
+.legal a{color:var(--ink2)}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;gap:0;padding-top:30px}
+  nav.toc{position:static;border-left:0;border-bottom:1px solid var(--line);padding:0 0 24px;margin-bottom:32px}
+  nav.toc a{display:inline-block;margin-right:16px}
+  .navlinks{display:none}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .brand .sub{display:none}
+  table{display:block;overflow-x:auto}
+}
+</style>
+
+</head>
+<body>
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/"><span class="mark">SOV<span>RA</span></span><span class="sub">The World Order</span></a>
+    <nav class="navlinks">
+      <a href="/">Home</a> · <a href="/wiki/">Wiki</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a>
+    </nav>
+    <a class="btn" href="/login.html">Play Free</a>
+  </div>
+</header>
+
+<div class="doc-hero">
+  <div class="wrap">
+    <p class="kicker">Legal</p>
+    <h1>Terms of Service</h1>
+    <p class="meta">Effective <b>18 August 2026</b> · Last updated <b>18 August 2026</b> · Applies to <b>playsovra.com</b></p>
+  </div>
+</div>
+
+<div class="wrap layout">
+  <nav class="toc">
+    <h4>On this page</h4>
+    <a href="#accept">1 · Accepting these terms</a>
+    <a href="#eligible">2 · Who can play</a>
+    <a href="#account">3 · Your account</a>
+    <a href="#conduct">4 · Rules of play</a>
+    <a href="#rmt">5 · No real-money trading</a>
+    <a href="#virtual">6 · In-game items</a>
+    <a href="#content">7 · What you write</a>
+    <a href="#enforce">8 · Moderation</a>
+    <a href="#availability">9 · Availability &amp; resets</a>
+    <a href="#ip">10 · Intellectual property</a>
+    <a href="#ads">11 · Advertising</a>
+    <a href="#warranty">12 · No warranty</a>
+    <a href="#liability">13 · Liability</a>
+    <a href="#term">14 · Ending your account</a>
+    <a href="#changes">15 · Changes</a>
+    <a href="#law">16 · Governing law</a>
+    <a href="#contact">17 · Contact</a>
+  </nav>
+
+  <article>
+    <p style="font-size:17px;color:var(--ink2);margin-bottom:34px">
+      SOVRA is a free multiplayer game. These terms are the agreement between you and us about how it is
+      played. They are written to be readable — the short version is: one account per person, do not cheat,
+      do not sell things for real money, and be aware the game can change or be reset.
+    </p>
+
+    <section id="accept">
+      <h2><span class="num">01</span>Accepting these terms</h2>
+      <p>
+        By creating an account or playing SOVRA — The World Order ("SOVRA", "the game") at
+        <a href="https://playsovra.com">playsovra.com</a>, you agree to these Terms of Service and to our
+        <a href="/privacy.html">Privacy Policy</a>. If you do not agree, do not use the game.
+      </p>
+      <p>The game is operated by <strong>The Living Kingdom</strong> ("we", "us").</p>
+    </section>
+
+    <section id="eligible">
+      <h2><span class="num">02</span>Who can play</h2>
+      <p>
+        You must be at least <strong>13 years old</strong>, or <strong>16</strong> if you are in the European
+        Economic Area or the United Kingdom. If you are under the age of majority where you live, you may only
+        play with the permission of a parent or guardian.
+      </p>
+      <p>You may not use the game if you have previously been permanently banned from it.</p>
+    </section>
+
+    <section id="account">
+      <h2><span class="num">03</span>Your account</h2>
+      <ul>
+        <li><strong>One account per person.</strong> Operating more than one account — commonly called multi-accounting — is the most serious rule in a game of this type, because a second nation is free resources taken from every honest player. We detect it and we ban for it.</li>
+        <li><strong>Do not share your account.</strong> You are responsible for everything done with it. Account sharing is also how most accounts get stolen.</li>
+        <li><strong>Do not sell, buy, or transfer accounts.</strong></li>
+        <li><strong>Use a real email address you control.</strong> It is the only way to recover your account.</li>
+        <li><strong>Keep your password unique.</strong> We cannot recover a stolen account that was protected by a password reused from another site.</li>
+      </ul>
+      <div class="note">
+        <div class="t">Households and shared connections</div>
+        <p>
+          If two people genuinely play from the same house, school, or network, tell us before you both start
+          playing. We would much rather record it in advance than investigate it later. Nations on a shared
+          connection must not trade with, bank for, or fight alongside each other.
+        </p>
+      </div>
+    </section>
+
+    <section id="conduct">
+      <h2><span class="num">04</span>Rules of play</h2>
+      <p>Aggression, betrayal, propaganda and coordinated warfare are the game. The following are not:</p>
+      <ul>
+        <li><strong>Automation.</strong> No bots, scripts, macros, or automated clients that play for you.</li>
+        <li><strong>Exploits.</strong> If you find a bug that produces resources, skips a cost, or breaks a limit, report it. Using it — or telling others to — is grounds for a ban and a rollback.</li>
+        <li><strong>Attacks on the service.</strong> No scraping at volumes that degrade the game, no denial-of-service, no attempts to access accounts, data, or systems that are not yours.</li>
+        <li><strong>Reverse-engineering the server.</strong> Reading the public pages is fine. Probing for vulnerabilities is not, unless we have invited you to.</li>
+        <li><strong>Harassment.</strong> Threats, slurs, sexual content, doxxing, or targeting a player outside the game. In-game hostility is expected; real-world harassment ends your account.</li>
+        <li><strong>Impersonation.</strong> Do not pose as staff, moderators, or another player.</li>
+        <li><strong>Illegal content.</strong> Anything unlawful in any name, description, or message.</li>
+      </ul>
+      <p>
+        Deception <em>inside</em> the game — breaking a treaty, spying on an ally, faking a peace offer — is a
+        legitimate strategy and is not a violation of these terms.
+      </p>
+    </section>
+
+    <section id="rmt">
+      <h2><span class="num">05</span>No real-money trading</h2>
+      <p>
+        You may not sell, buy, auction, or exchange in-game resources, nations, accounts, alliance positions,
+        or any other in-game advantage for real money or anything of real-world value. This applies whether the
+        transaction happens inside the game or anywhere else.
+      </p>
+      <p>
+        Both sides of a real-money trade will be banned, and the resources involved removed. This rule exists
+        to protect the market: a player-driven economy stops working the moment resources can be bought
+        outside it.
+      </p>
+    </section>
+
+    <section id="virtual">
+      <h2><span class="num">06</span>In-game items have no real value</h2>
+      <p>
+        Money, resources, cities, infrastructure, military units, projects and every other in-game asset are
+        part of a game simulation. <strong>You do not own them</strong> and they have no monetary value. We may
+        add, remove, rebalance, or reset them at any time as part of running and balancing the game, and you
+        are not entitled to compensation when we do.
+      </p>
+      <p>
+        SOVRA is free. We do not sell in-game advantages, and nothing purchasable affects nation strength,
+        combat outcomes, or economy.
+      </p>
+    </section>
+
+    <section id="content">
+      <h2><span class="num">07</span>What you write</h2>
+      <p>
+        You keep ownership of the text you create — nation descriptions, alliance names and announcements,
+        messages. By posting it in the game you give us a non-exclusive, royalty-free licence to store,
+        display, and distribute it within the game and on public pages such as rankings, for as long as you
+        keep it posted.
+      </p>
+      <p>
+        You are responsible for what you write, and you confirm you have the right to post it. We may remove
+        content that breaks these terms without notice.
+      </p>
+    </section>
+
+    <section id="enforce">
+      <h2><span class="num">08</span>Moderation and enforcement</h2>
+      <p>Where we find a violation we may, in proportion to what happened:</p>
+      <ul>
+        <li>Issue a warning</li>
+        <li>Remove or roll back illegitimately obtained resources</li>
+        <li>Suspend an account temporarily</li>
+        <li>Ban an account permanently</li>
+        <li>Refuse future accounts from the same person</li>
+      </ul>
+      <p>
+        Every administrative action taken on an account is recorded with a reason in an append-only log that
+        no administrator can edit or delete. If you believe an action against you was wrong, contact us at
+        <a href="mailto:playsovra@gmail.com">playsovra@gmail.com</a> and we will review it against that log.
+      </p>
+      <div class="note warn">
+        <div class="t">One thing we will not do</div>
+        <p>
+          Administrators do not play with unlimited resources, and there is no route in the game — for anyone,
+          including us — to grant in-game advantage to a player account. Elevated access exists to fix the
+          game, not to win it.
+        </p>
+      </div>
+    </section>
+
+    <section id="availability">
+      <h2><span class="num">09</span>Availability, changes and resets</h2>
+      <p>
+        SOVRA is provided free and without any guarantee of uptime. We may take the game offline for
+        maintenance, change mechanics and balance, add or remove features, or — while the game is young —
+        <strong>reset the world entirely</strong>. Where a full reset is planned, we will announce it in advance.
+      </p>
+      <p>
+        Data loss is possible. We take reasonable steps to prevent it, but you should not treat progress in a
+        free browser game as permanent.
+      </p>
+    </section>
+
+    <section id="ip">
+      <h2><span class="num">10</span>Intellectual property</h2>
+      <p>
+        The SOVRA name, logo, interface, game design, text, and code are owned by us and protected by
+        copyright and trade mark law. You may not copy, redistribute, or create a derivative service from them
+        without written permission.
+      </p>
+      <p>
+        You may freely write guides, run community sites, stream, and make videos about SOVRA, including
+        monetised ones, provided you do not present them as official or use our branding in a way that
+        suggests endorsement.
+      </p>
+    </section>
+
+    <section id="ads">
+      <h2><span class="num">11</span>Advertising</h2>
+      <p>
+        SOVRA currently shows no advertising. If that changes to cover hosting costs, advertisers will have no
+        influence over game mechanics, moderation, or the market, and we will not share your account data with
+        them. See the <a href="/privacy.html#ads">Privacy Policy</a>, which will be updated before any ad is
+        served.
+      </p>
+    </section>
+
+    <section id="warranty">
+      <h2><span class="num">12</span>No warranty</h2>
+      <p>
+        The game is provided "as is" and "as available", without warranties of any kind, express or implied,
+        including merchantability, fitness for a particular purpose, and non-infringement. We do not warrant
+        that the game will be uninterrupted, secure, error-free, or that any defect will be corrected.
+      </p>
+    </section>
+
+    <section id="liability">
+      <h2><span class="num">13</span>Limitation of liability</h2>
+      <p>
+        To the fullest extent permitted by law, we are not liable for any indirect, incidental, special,
+        consequential or punitive damages, or for any loss of data, progress, or in-game assets, arising from
+        your use of the game. Because SOVRA is provided free of charge, our total aggregate liability to you
+        is limited to <strong>INR 1,000</strong>.
+      </p>
+      <p>
+        Nothing in these terms excludes liability for death or personal injury caused by negligence, for
+        fraud, or for anything else that cannot be excluded by law. Some jurisdictions do not allow certain
+        exclusions, so parts of this section may not apply to you.
+      </p>
+    </section>
+
+    <section id="term">
+      <h2><span class="num">14</span>Ending your account</h2>
+      <p>
+        You can stop playing at any time, and you can ask us to delete your account by emailing
+        <a href="mailto:playsovra@gmail.com">playsovra@gmail.com</a>. We may suspend or terminate your account if you break
+        these terms, or if we discontinue the game.
+      </p>
+      <p>
+        Sections 5, 6, 7, 10, 12, 13 and 16 survive the ending of your account.
+      </p>
+    </section>
+
+    <section id="changes">
+      <h2><span class="num">15</span>Changes to these terms</h2>
+      <p>
+        We may update these terms as the game develops. The "last updated" date at the top will change, and
+        material changes will be announced in game before they take effect. Continuing to play after a change
+        means you accept the updated terms.
+      </p>
+    </section>
+
+    <section id="law">
+      <h2><span class="num">16</span>Governing law</h2>
+      <p>
+        These terms are governed by the laws of <strong>India</strong>, and the courts of
+        <strong>India</strong> have exclusive jurisdiction over any dispute, except where
+        mandatory consumer protection law in your country of residence gives you the right to bring a claim
+        locally.
+      </p>
+    </section>
+
+    <section id="contact">
+      <h2><span class="num">17</span>Contact</h2>
+      <p>Questions, appeals, or legal notices: <a href="mailto:playsovra@gmail.com">playsovra@gmail.com</a></p>
+    </section>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap legal">
+    <span>© <span id="yr">2026</span> SOVRA — The World Order · <a href="/privacy.html">Privacy Policy</a> · <a href="/">Home</a> · <a href="/wiki/">Wiki</a></span>
+    <span class="mono">playsovra.com</span>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+
+</body>
+</html>

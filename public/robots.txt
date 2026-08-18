@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin.html
+
+Sitemap: https://playsovra.com/sitemap.xml

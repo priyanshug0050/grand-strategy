@@ -1188,10 +1188,335 @@ async function previewAttack(nationId, warId, attackType) {
 // ============================================================================
 
 
+// ============================================================================
+// RANKINGS — public, no authentication
+// ============================================================================
+
+/**
+ * The world table, ordered by score.
+ *
+ * Ordered by SCORE rather than infrastructure, because score is what decides
+ * who can attack whom. A table sorted by infrastructure looks like a ranking
+ * but answers a question nobody is asking.
+ *
+ * Deliberately EXCLUDES money and stockpiles. This endpoint needs no login, and
+ * publishing everyone's treasury turns raiding from a judgement call into a
+ * shopping list. Name, size and score are public in this genre; cash is not.
+ */
+async function getRankings({ limit = 100 } = {}) {
+  const gs = await db.query('SELECT current_turn FROM game_state WHERE id = 1');
+  const turn = gs.rows.length ? Number(gs.rows[0].current_turn) : 0;
+
+  // Two queries, not one per nation. findTargets does an N+1 over units, which
+  // is fine for a war-range slice and would be 100 round trips here.
+  const { rows } = await db.query(
+    `SELECT n.id, n.name, n.color, n.alliance_id, n.beige_until_turn,
+            COUNT(DISTINCT c.id)              AS city_count,
+            COALESCE(SUM(c.infrastructure),0) AS total_infrastructure,
+            COALESCE(SUM(c.land),0)           AS total_land,
+            (SELECT COUNT(*) FROM nation_projects p WHERE p.nation_id = n.id) AS project_count
+       FROM nations n
+       LEFT JOIN cities c ON c.nation_id = n.id
+      WHERE n.is_deleted = FALSE
+      GROUP BY n.id`
+  );
+
+  const unitRows = await db.query(
+    `SELECT nation_id, unit_key, count FROM nation_units
+      WHERE nation_id = ANY($1::bigint[])`,
+    [rows.map(r => Number(r.id))]
+  );
+  const unitsByNation = new Map();
+  for (const u of unitRows.rows) {
+    const id = Number(u.nation_id);
+    if (!unitsByNation.has(id)) unitsByNation.set(id, {});
+    unitsByNation.get(id)[u.unit_key] = db.num(u.count);
+  }
+
+  const nations = rows.map(r => {
+    const id = Number(r.id);
+    const cityCount = Math.max(Number(r.city_count), 1);
+    const infra = db.num(r.total_infrastructure);
+
+    // nationScore only reads total infrastructure across cities, so putting it
+    // all in the first city gives the same answer without loading every row.
+    const score = military.nationScore({
+      cities: Array(cityCount).fill(null).map((_, i) => ({
+        infrastructure: i === 0 ? infra : 0,
+      })),
+      projects: Array(Number(r.project_count)).fill('x'),
+      units: unitsByNation.get(id) || {},
+    });
+
+    const onBeige = r.beige_until_turn !== null && turn < Number(r.beige_until_turn);
+
+    return {
+      id,
+      name: r.name,
+      color: r.color,
+      allianceId: r.alliance_id ? Number(r.alliance_id) : null,
+      cities: Number(r.city_count),
+      infrastructure: infra,
+      land: db.num(r.total_land),
+      projects: Number(r.project_count),
+      score: round2(score),
+      onBeige,
+    };
+  });
+
+  nations.sort((a, b) => b.score - a.score);
+  nations.forEach((n, i) => { n.rank = i + 1; });
+
+  return {
+    turn,
+    total: nations.length,
+    // Beige and gray nations are excluded from the total score in the engine;
+    // say so here rather than letting the number look wrong.
+    nations: nations.slice(0, Math.min(limit, 250)),
+  };
+}
+
+// ============================================================================
+// PROJECTS
+// ============================================================================
+
+/**
+ * The project catalogue with everything the page needs to decide, in one call:
+ * what it does, what it costs, whether you own it, and whether you can pay.
+ *
+ * Affordability is computed here for DISPLAY only. buildProject re-checks it
+ * inside the transaction — this is a hint, not an authorisation.
+ */
+async function getProjectCatalogue(nationId) {
+  return db.withTransaction(async (tx) => {
+    const gs = await repo.loadGameState(tx);
+    const nation = await repo.loadNation(tx, nationId, { currentTurn: gs.turn });
+    if (!nation) throw new GameError('Nation not found');
+
+    const owned = new Set(nation.projects || []);
+    const stockpile = nation.stockpile || {};
+    const money = db.num(nation.money);
+
+    const projects = Object.entries(C.PROJECTS).map(([key, def]) => {
+      const cost = def.cost || {};
+      const short = {};
+      for (const [res, amount] of Object.entries(cost)) {
+        const held = res === 'money' ? money : db.num(stockpile[res] || 0);
+        if (held < amount) short[res] = round4(amount - held);
+      }
+      return {
+        key,
+        name: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        cost,
+        effect: def.effect,
+        owned: owned.has(key),
+        affordable: Object.keys(short).length === 0,
+        short,
+      };
+    });
+
+    return {
+      turn: gs.turn,
+      money,
+      stockpile,
+      ownedCount: owned.size,
+      // Every project adds score, which widens the range of nations that can
+      // declare on you. The page says this out loud rather than surprising you.
+      scorePerProject: C.PROJECT_SCORE_VALUE,
+      currentScore: round2(military.nationScore(nation)),
+      projects,
+    };
+  });
+}
+
+// ============================================================================
+// WAR HISTORY
+// ============================================================================
+
+/**
+ * Every war this nation has fought, finished ones included.
+ *
+ * /api/wars deliberately returns only ACTIVE wars because the military page
+ * acts on them. History is a separate question and a separate query — merging
+ * them would put ended wars in the attack UI.
+ */
+async function getWarHistory(nationId, limit = 50) {
+  const { rows } = await db.query(
+    `SELECT w.*, a.name AS attacker_name, d.name AS defender_name,
+            (SELECT COUNT(*) FROM battles b WHERE b.war_id = w.id) AS battle_count
+       FROM wars w
+       JOIN nations a ON a.id = w.attacker_id
+       JOIN nations d ON d.id = w.defender_id
+      WHERE w.attacker_id = $1 OR w.defender_id = $1
+      ORDER BY w.started_turn DESC
+      LIMIT $2`,
+    [nationId, Math.min(limit, 200)]
+  );
+
+  return {
+    wars: rows.map(w => ({
+      ...w,
+      id: Number(w.id),
+      attackerId: Number(w.attacker_id),
+      defenderId: Number(w.defender_id),
+      battleCount: Number(w.battle_count),
+      youAttacked: Number(w.attacker_id) === Number(nationId),
+      active: w.ended_turn === null,
+    })),
+  };
+}
+
+/**
+ * The battles in one war — only for the two nations that fought it.
+ *
+ * Without the participant check this leaks every battle in the game to anyone
+ * who can guess a war id, which is a straightforward intelligence advantage.
+ */
+async function getWarBattles(nationId, warId) {
+  const war = await db.query(
+    'SELECT id, attacker_id, defender_id FROM wars WHERE id = $1', [warId]);
+  if (war.rows.length === 0) throw new GameError('War not found');
+
+  const w = war.rows[0];
+  if (Number(w.attacker_id) !== Number(nationId) &&
+      Number(w.defender_id) !== Number(nationId)) {
+    throw new GameError('You were not in that war');
+  }
+
+  const { rows } = await db.query(
+    `SELECT * FROM battles WHERE war_id = $1 ORDER BY turn ASC, id ASC`, [warId]);
+
+  return {
+    warId: Number(warId),
+    battles: rows.map(b => ({
+      ...b,
+      id: Number(b.id),
+      turn: Number(b.turn),
+      victoryType: Number(b.victory_type),
+      // rng_seed is what makes a battle auditable — surfacing it is the point.
+      rngSeed: b.rng_seed === null ? null : String(b.rng_seed),
+      replayable: b.rng_seed !== null,
+    })),
+  };
+}
+
+/**
+ * Dig in. Raises the casualties an attacker takes against you for the rest of
+ * this cycle, and ends the moment you attack.
+ *
+ * WHY THIS EXISTS. The engine has read `fortified` since combat.js was written,
+ * the wars table has carried the column since the first schema, and nothing has
+ * ever been able to set it to TRUE. A defender's only option was to hit back —
+ * which is not a defensive game, it is the same offensive game played from
+ * behind.
+ *
+ * It costs the same MAP as a ground battle on purpose. A free action taken
+ * every single turn is not a decision.
+ */
+async function fortify(nationId, warId) {
+  return db.withTransaction(async (tx) => {
+    const { rows: warRows } = await tx.query(
+      'SELECT * FROM wars WHERE id = $1 AND ended_turn IS NULL', [warId]
+    );
+    if (warRows.length === 0) throw new GameError('War not found or already ended');
+    const war = warRows[0];
+
+    const isAttacker = Number(war.attacker_id) === Number(nationId);
+    const isDefender = Number(war.defender_id) === Number(nationId);
+    if (!isAttacker && !isDefender) throw new GameError('You are not a participant in this war');
+
+    await db.lockNations(tx, [nationId]);
+
+    const gs = await repo.loadGameState(tx);
+    const me = await repo.loadNation(tx, nationId, { lock: true, currentTurn: gs.turn });
+    if (!me) throw new GameError('Nation not found');
+
+    const column = isAttacker ? 'attacker_fortified' : 'defender_fortified';
+    if (war[column]) throw new GameError('You are already fortified in this war');
+
+    // Validated inside the transaction, after the lock — checking MAP outside it
+    // is the read-modify-write race that lets two requests spend the same points.
+    const check = military.canPerformAction(me.map, 'fortify');
+    if (!check.ok) {
+      throw new GameError(
+        `Fortifying costs ${check.cost} action points and you have ${me.map}.`,
+        { cost: check.cost, have: me.map, shortfall: check.shortfall }
+      );
+    }
+
+    me.map -= check.cost;
+    await tx.query(`UPDATE wars SET ${column} = TRUE WHERE id = $1`, [warId]);
+    await repo.saveNation(tx, me);
+
+    const opponentId = isAttacker ? Number(war.defender_id) : Number(war.attacker_id);
+    await repo.recordEvents(tx, opponentId, [{
+      turn: gs.turn, type: 'enemy_fortified',
+      message: `${me.name} has fortified against you. Attacking them now costs you ` +
+               `${Math.round(C.COMBAT.FORTIFY_CASUALTY_INCREASE * 100)}% more casualties.`,
+    }]);
+
+    return {
+      ok: true,
+      warId: Number(warId),
+      fortified: true,
+      mapSpent: check.cost,
+      mapRemaining: me.map,
+      attackerCasualtyIncrease: C.COMBAT.FORTIFY_CASUALTY_INCREASE,
+    };
+  });
+}
+
+/**
+ * Active wars, shaped from the READER's point of view.
+ *
+ * The raw columns are attacker_/defender_ prefixed, so every consumer has to
+ * work out which side it is on before it can read anything. Doing that once
+ * here means the page cannot get it backwards — and getting it backwards means
+ * telling a player they hold air superiority when they are suffering under it.
+ */
+async function getWars(nationId) {
+  const { rows } = await db.query(
+    `SELECT w.*, a.name AS attacker_name, d.name AS defender_name
+       FROM wars w
+       JOIN nations a ON a.id = w.attacker_id
+       JOIN nations d ON d.id = w.defender_id
+      WHERE (w.attacker_id = $1 OR w.defender_id = $1) AND w.ended_turn IS NULL
+      ORDER BY w.started_turn DESC`,
+    [nationId]
+  );
+
+  return {
+    wars: rows.map(w => {
+      const isAttacker = Number(w.attacker_id) === Number(nationId);
+      return {
+        ...w,
+        id: Number(w.id),
+        youDeclared: isAttacker,
+        opponentId: isAttacker ? Number(w.defender_id) : Number(w.attacker_id),
+        opponentName: isAttacker ? w.defender_name : w.attacker_name,
+
+        myResistance: db.num(isAttacker ? w.attacker_resistance : w.defender_resistance),
+        theirResistance: db.num(isAttacker ? w.defender_resistance : w.attacker_resistance),
+
+        // What YOU hold, and what is being held OVER you.
+        myControlState: isAttacker ? w.attacker_control_state : w.defender_control_state,
+        theirControlState: isAttacker ? w.defender_control_state : w.attacker_control_state,
+
+        iAmFortified: isAttacker ? w.attacker_fortified : w.defender_fortified,
+        theyAreFortified: isAttacker ? w.defender_fortified : w.attacker_fortified,
+      };
+    }),
+  };
+}
+
 module.exports = {
   GameError,
   getSnapshot,
   getEvents,
+  getRankings,
+  getProjectCatalogue,
+  getWarHistory,
+  getWarBattles,
   getEconomy,
   findTargets,
   previewAttack,
@@ -1207,4 +1532,6 @@ module.exports = {
   previewPolicy,
   declareWar,
   attack,
+  fortify,
+  getWars,
 };

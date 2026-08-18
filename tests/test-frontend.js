@@ -37,6 +37,8 @@ function has(text, needle, what) {
 
 const BASE = 'http://127.0.0.1:' + process.env.PORT;
 const TEST_EMAIL = 'frontend@test.com';
+const TEST_EMAIL_2 = 'frontend2@test.com';
+const TEST_EMAIL_3 = 'frontend3@test.com';
 
 async function get(path, token) {
   const res = await fetch(BASE + path, {
@@ -51,7 +53,7 @@ async function get(path, token) {
 }
 
 async function cleanup() {
-  await db.query('DELETE FROM users WHERE email = $1', [TEST_EMAIL]);
+  await db.query('DELETE FROM users WHERE email = ANY($1)', [[TEST_EMAIL, TEST_EMAIL_2, TEST_EMAIL_3]]);
 }
 
 (async () => {
@@ -61,10 +63,118 @@ async function cleanup() {
 
   console.log('\n-- Static files reach the browser --');
 
-  await t('/ serves the login page', async () => {
+  await t('/ serves the LANDING page, not the login form', async () => {
+    // The landing page is what Google and a first-time visitor see. If this
+    // ever goes back to serving the login form, the site has no indexable
+    // content again and the SEO work is undone.
     const r = await get('/');
     eq(r.status, 200);
-    has(r.body, 'Grand Strategy', 'index.html');
+    has(r.body, 'SOVRA', 'index.html');
+    has(r.body, 'The World Order', 'index.html');
+    if (r.body.includes('type="password"')) {
+      throw new Error('/ is serving the login form — index.html and login.html are swapped');
+    }
+    if (!r.body.includes('/login.html')) {
+      throw new Error('landing page has no route into the game');
+    }
+  });
+
+  await t('/login.html serves the login form', async () => {
+    const r = await get('/login.html');
+    eq(r.status, 200);
+    has(r.body, 'SOVRA', 'login.html');
+    has(r.body, 'type="password"', 'login.html');
+    has(r.body, 'registerPanel', 'login.html');
+  });
+
+  await t('LANDING PAGE IS SELF-CONTAINED (no game CSS to fight with)', async () => {
+    // It deliberately carries its own styles. If it starts pulling app.css the
+    // two design systems collide, and the marketing page inherits game layout.
+    const r = await get('/');
+    if (r.body.includes('/css/app.css')) throw new Error('landing page depends on app.css');
+    has(r.body, 'name="viewport"', 'index.html');
+    has(r.body, '<style>', 'index.html');
+  });
+
+  await t('SEO: landing page carries the tags Google reads', async () => {
+    const r = await get('/');
+    for (const needle of [
+      '<title>', 'name="description"', 'rel="canonical"',
+      'og:title', 'og:description', 'application/ld+json',
+    ]) has(r.body, needle, 'index.html');
+    if (!r.body.includes('"@type":"VideoGame"')) throw new Error('missing VideoGame schema');
+    if (!r.body.includes('"@type":"FAQPage"')) throw new Error('missing FAQPage schema');
+  });
+
+  await t('nothing links to /index.html any more (it is the landing page now)', async () => {
+    // A stale redirect here sends a logged-out player to marketing instead of
+    // the login form, and they never find their way back in.
+    const r = await get('/js/api.js');
+    if (r.body.includes('/index.html')) {
+      throw new Error('api.js still redirects to /index.html — should be /login.html');
+    }
+  });
+
+  console.log('\n-- Legal pages (AdSense will not approve without these) --');
+
+  await t('privacy policy and terms are served', async () => {
+    for (const [p, needle] of [['/privacy.html','Privacy Policy'], ['/terms.html','Terms of Service']]) {
+      const r = await get(p);
+      eq(r.status, 200, p);
+      has(r.body, needle, p);
+      has(r.body, 'name="viewport"', p);
+    }
+  });
+
+  await t('LEGAL PAGES HAVE NO UNFILLED PLACEHOLDERS', async () => {
+    // Publishing a policy that still says __CONTACT_EMAIL__ is worse than
+    // having no policy. This test is the forcing function.
+    // Report EVERY page at once. Throwing on the first one hid the fact that
+    // terms.html still had five placeholders while privacy.html had one, so
+    // fixing privacy.html just revealed the next failure instead of the whole
+    // list. A checklist test should hand you the whole checklist.
+    const problems = [];
+    for (const p of ['/privacy.html', '/terms.html']) {
+      const r = await get(p);
+      const left = [...new Set([...String(r.body).matchAll(/__[A-Z_]+__/g)].map(m => m[0]))];
+      if (left.length) problems.push(`${p}: ${left.join(', ')}`);
+
+      // The .fill class is the red "not filled in yet" marker. Left on a real
+      // value it makes a finished policy look like a draft full of errors.
+      if (String(r.body).includes('class="fill"')) {
+        problems.push(`${p}: still has draft-marker <span class="fill"> around a real value`);
+      }
+    }
+    if (problems.length) throw new Error(problems.join(' | '));
+  });
+
+  await t('THE POLICY DESCRIBES THE SITE WE ACTUALLY RUN', async () => {
+    // AdSense reviewers compare the policy against the live site, and a policy
+    // naming ad partners that receive nothing is simply inaccurate. When ads do
+    // go live, this test is the reminder to update the page first.
+    const r = await get('/privacy.html');
+    if (/AdSense/i.test(r.body)) {
+      throw new Error('privacy policy names an ad network — update it when ads actually go live, not before');
+    }
+    has(r.body, 'currently shows no advertising', 'privacy.html');
+  });
+
+  await t('NO DEAD INTERNAL LINKS on the public pages', async () => {
+    // Every href="/..." on a page Google can crawl must actually resolve.
+    // Dead links on a landing page cost you both players and ranking.
+    for (const page of ['/', '/privacy.html', '/terms.html', '/login.html', '/rankings.html',
+                        '/wiki/', '/wiki/cities.html', '/wiki/economy.html',
+                        '/wiki/population.html', '/wiki/war.html',
+                        '/wiki/policies.html', '/wiki/projects.html']) {
+      const r = await get(page);
+      const links = [...String(r.body).matchAll(/href="(\/[^"]*)"/g)]
+        .map(m => m[1].split('#')[0].split('?')[0])
+        .filter(Boolean);
+      for (const link of [...new Set(links)]) {
+        const res = await get(link);
+        if (res.status !== 200) throw new Error(`${page} links to ${link} -> ${res.status}`);
+      }
+    }
   });
 
   await t('stylesheet loads', async () => {
@@ -144,6 +254,31 @@ async function cleanup() {
     }),
   });
   const { token } = await reg.json();
+
+  // A second, unrelated nation. Needed to prove that one player cannot read
+  // another player's battles — a check that passes vacuously with one account.
+  const reg2 = await fetch(BASE + '/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'User-Agent': 'frontend-test-2' },
+    body: JSON.stringify({
+      email: TEST_EMAIL_2, password: 'password123',
+      nationName: 'Bystandia', leaderName: 'Onlooker', continent: 'asia',
+    }),
+  });
+  const otherToken = (await reg2.json()).token;
+
+  // A THIRD nation that fights nobody. The access-control checks need a genuine
+  // outsider: nation 2 ends up as the defender in the war set up below, so using
+  // its token would be testing that a participant can read its own war.
+  const reg3 = await fetch(BASE + '/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'User-Agent': 'frontend-test-3' },
+    body: JSON.stringify({
+      email: TEST_EMAIL_3, password: 'password123',
+      nationName: 'Neutralia', leaderName: 'Nobody', continent: 'africa',
+    }),
+  });
+  const outsiderToken = (await reg3.json()).token;
 
   await t('THE LEDGER: every field it displays is present', async () => {
     if (!token) throw new Error('registration failed, cannot check');
@@ -521,6 +656,302 @@ async function cleanup() {
     }
   });
 
+  console.log('\n-- Wiki (the SEO surface) --');
+
+  const WIKI_PAGES = ['/wiki/', '/wiki/cities.html', '/wiki/economy.html',
+                      '/wiki/population.html', '/wiki/war.html',
+                      '/wiki/policies.html', '/wiki/projects.html'];
+
+  await t('every wiki page is served', async () => {
+    for (const p of WIKI_PAGES) {
+      const r = await get(p);
+      eq(r.status, 200, p);
+      has(r.body, 'SOVRA', p);
+      has(r.body, 'name="viewport"', p);
+    }
+  });
+
+  await t('wiki pages carry their own title, description and canonical', async () => {
+    // Duplicate titles across pages are one of the most common SEO own-goals.
+    const titles = new Set();
+    for (const p of WIKI_PAGES) {
+      const r = await get(p);
+      const m = String(r.body).match(/<title>([^<]+)<\/title>/);
+      if (!m) throw new Error(`${p} has no <title>`);
+      if (titles.has(m[1])) throw new Error(`${p} duplicates the title "${m[1]}"`);
+      titles.add(m[1]);
+      has(r.body, 'name="description"', p);
+      has(r.body, 'rel="canonical"', p);
+    }
+  });
+
+  await t('THE WIKI MATCHES THE ENGINE (run `npm run wiki` if this fails)', async () => {
+    // The whole reason the wiki is generated instead of hand-written: if a
+    // constant changes and nobody regenerates, the documentation is lying.
+    // This regenerates in memory and diffs against what is actually served.
+    const { pages } = require('../make-wiki');
+    const built = pages();
+    for (const [name, html] of Object.entries(built)) {
+      const url = name === 'index.html' ? '/wiki/' : '/wiki/' + name;
+      const r = await get(url);
+      if (String(r.body) !== html) {
+        throw new Error(`${url} is stale — the engine changed but the wiki was not rebuilt`);
+      }
+    }
+  });
+
+  await t('wiki quotes real engine values, not typed-in ones', async () => {
+    // Spot-check a few figures against the constants they came from. If someone
+    // hand-edits the generated HTML, this catches it.
+    const C = require('../src/engine/constants');
+    const r = await get('/wiki/war.html');
+    has(r.body, String(C.COMBAT.ROLL_COUNT), 'war.html');
+    has(r.body, String(C.COMBAT.MAP_MAX), 'war.html');
+    has(r.body, String(C.COMBAT.RESISTANCE_START), 'war.html');
+
+    const e = await get('/wiki/economy.html');
+    has(e.body, String(C.ECONOMY.INCOME_PER_CAPITA_BASE), 'economy.html');
+    has(e.body, String(C.IMPROVEMENTS.coal_power.infraCapacity), 'economy.html');
+  });
+
+  await t('sitemap.xml and robots.txt are served and agree', async () => {
+    const sm = await get('/sitemap.xml');
+    eq(sm.status, 200);
+    has(sm.body, '<urlset', 'sitemap.xml');
+    for (const p of WIKI_PAGES) {
+      const loc = p === '/wiki/' ? '/wiki/' : p;
+      if (!String(sm.body).includes(loc)) throw new Error(`sitemap is missing ${loc}`);
+    }
+    const rb = await get('/robots.txt');
+    eq(rb.status, 200);
+    has(rb.body, 'Sitemap:', 'robots.txt');
+    has(rb.body, 'Disallow: /api/', 'robots.txt');
+  });
+
+  await t('every in-game page links to the wiki', async () => {
+    for (const p of ['/dashboard.html','/cities.html','/economy.html','/policy.html',
+                     '/market.html','/military.html','/projects.html','/history.html']) {
+      const r = await get(p);
+      if (!r.body.includes('/wiki/')) throw new Error(`${p} has no wiki link`);
+    }
+  });
+
+  console.log('\n-- War card: control states and fortify --');
+
+  // A real war between the two test nations, so the checks below are not
+  // vacuous. They registered with different user agents, so they are not
+  // treated as linked accounts.
+  let warId = null;
+  try {
+    const meSnap = await get('/api/nation', token);
+    const themSnap = await get('/api/nation', otherToken);
+    const myId = meSnap.body.nation.id, theirId = themSnap.body.nation.id;
+
+    await db.query('UPDATE nations SET beige_until_turn = NULL WHERE id = ANY($1)', [[myId, theirId]]);
+    await db.query('UPDATE cities SET infrastructure = 500 WHERE nation_id = ANY($1)', [[myId, theirId]]);
+
+    const decl = await fetch(`${BASE}/api/war/declare`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ targetId: theirId, warType: 'ordinary' }),
+    });
+    const body = await decl.json();
+    if (decl.status === 201) warId = body.warId;
+
+    // Accrue enough action points to actually fortify.
+    for (let i = 0; i < 4; i++) await scheduler.runTurn();
+  } catch {
+    // If setup fails the tests below skip rather than reporting a false failure.
+  }
+
+
+  await t('reference ships the engine\'s OWN control-state wording', async () => {
+    // The UI must not invent its own sentences for these. If the reference stops
+    // carrying them, the war card silently falls back to a raw column name.
+    const r = await get('/api/reference');
+    const C = require('../src/engine/constants');
+    for (const key of Object.keys(C.CONTROL_STATES)) {
+      const cs = r.body.controlStates[key];
+      if (!cs) throw new Error(`reference is missing control state ${key}`);
+      for (const f of ['name', 'holding', 'suffering']) {
+        if (!cs[f]) throw new Error(`${key} has no ${f} text`);
+      }
+    }
+    if (r.body.mapCosts.fortify === undefined) throw new Error('mapCosts.fortify missing');
+    if (typeof r.body.fortifyCasualtyIncrease !== 'number') throw new Error('fortifyCasualtyIncrease missing');
+  });
+
+  await t('/api/wars answers from the READER\'s point of view', async () => {
+    // Raw attacker_/defender_ columns force every caller to work out which side
+    // it is on. Getting that backwards tells a player they hold air superiority
+    // while they are suffering under it.
+    const r = await get('/api/wars', token);
+    eq(r.status, 200);
+    for (const w of r.body.wars) {
+      for (const k of ['youDeclared', 'opponentName', 'myResistance', 'theirResistance',
+                       'myControlState', 'theirControlState', 'iAmFortified', 'theyAreFortified']) {
+        if (!(k in w)) throw new Error(`war is missing ${k}`);
+      }
+    }
+  });
+
+  await t('FORTIFY: costs MAP, sets the flag, refuses a repeat', async () => {
+    if (!warId) throw new Error('war setup failed — cannot check fortify');
+    const wars = await get('/api/wars', token);
+    const war = wars.body.wars.find(w => w.id === warId);
+    if (!war) throw new Error('declared war is missing from /api/wars');
+
+    const before = await get('/api/nation', token);
+    const res = await fetch(`${BASE}/api/war/${war.id}/fortify`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token },
+    });
+    const body = await res.json();
+
+    if (res.status !== 200) {
+      // Only acceptable failure is genuinely not having the points.
+      if (!/action points/.test(body.error || '')) throw new Error(body.error);
+      return;
+    }
+
+    const C = require('../src/engine/constants');
+    const after = await get('/api/nation', token);
+    eq(after.body.nation.map, before.body.nation.map - C.COMBAT.MAP_COST.fortify, 'MAP spent');
+
+    const wars2 = await get('/api/wars', token);
+    const w2 = wars2.body.wars.find(x => x.id === war.id);
+    if (!w2.iAmFortified) throw new Error('fortify did not set the flag');
+
+    const again = await fetch(`${BASE}/api/war/${war.id}/fortify`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token },
+    });
+    if (again.status === 200) throw new Error('fortifying twice was allowed');
+  });
+
+  await t('FORTIFY IS PARTICIPANTS ONLY', async () => {
+    if (!warId) throw new Error('war setup failed — cannot check access control');
+    const res = await fetch(`${BASE}/api/war/${warId}/fortify`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + outsiderToken },
+    });
+    if (res.status === 200) throw new Error('a non-participant fortified someone else\'s war');
+  });
+
+  await t('military page reads MAP costs from the server, not its own copy', async () => {
+    // These were typed into military.js as literals, so tuning MAP_COST in the
+    // engine left the buttons advertising the old price.
+    const r = await get('/js/military.js');
+    if (/map:\s*3\b/.test(r.body) || /map:\s*4\b/.test(r.body)) {
+      throw new Error('military.js still hardcodes MAP costs');
+    }
+    has(r.body, 'ref.mapCosts', 'military.js');
+    has(r.body, 'controlStates', 'military.js');
+    has(r.body, 'data-fortify', 'military.js');
+  });
+
+  console.log('\n-- Rankings (public) --');
+
+  await t('rankings page and API work SIGNED OUT', async () => {
+    // This is the one game page a stranger sees before deciding to sign up.
+    // If it ever starts requiring a token, the landing page links into a wall.
+    const page = await get('/rankings.html');
+    eq(page.status, 200);
+    has(page.body, '/js/rankings.js', 'rankings.html');
+
+    const api = await get('/api/rankings');          // deliberately no token
+    eq(api.status, 200, 'rankings API without a token');
+    if (!Array.isArray(api.body.nations)) throw new Error('no nations array');
+  });
+
+  await t('RANKINGS NEVER LEAK MONEY OR STOCKPILES', async () => {
+    // Public endpoint. A visible treasury turns raiding into a shopping list,
+    // and nation_summary (which this used to select from) does carry money.
+    const r = await get('/api/rankings');
+    const serialised = JSON.stringify(r.body);
+    for (const leak of ['"money"', '"stockpile"', '"credits"']) {
+      if (serialised.includes(leak)) throw new Error(`rankings exposes ${leak}`);
+    }
+  });
+
+  await t('rankings are ordered by SCORE, and ranked', async () => {
+    const r = await get('/api/rankings');
+    const ns = r.body.nations;
+    for (let i = 1; i < ns.length; i++) {
+      if (ns[i].score > ns[i - 1].score) throw new Error('not sorted by score');
+    }
+    ns.forEach((n, i) => {
+      if (n.rank !== i + 1) throw new Error(`rank ${n.rank} at index ${i}`);
+      if (typeof n.score !== 'number') throw new Error('score missing');
+    });
+  });
+
+  console.log('\n-- Projects --');
+
+  await t('projects page loads and api.js comes first', async () => {
+    const r = await get('/projects.html');
+    eq(r.status, 200);
+    const apiPos = r.body.indexOf('/js/api.js');
+    const pagePos = r.body.indexOf('/js/projects.js');
+    if (apiPos === -1 || pagePos === -1) throw new Error('a script tag is missing');
+    if (apiPos > pagePos) throw new Error('api.js loads AFTER projects.js');
+  });
+
+  await t('project catalogue returns everything the page renders', async () => {
+    const r = await get('/api/projects', token);
+    eq(r.status, 200);
+    const C = require('../src/engine/constants');
+    eq(r.body.projects.length, Object.keys(C.PROJECTS).length, 'project count');
+    eq(r.body.scorePerProject, C.PROJECT_SCORE_VALUE, 'score per project');
+    for (const p of r.body.projects) {
+      if (!p.key || !p.name || !p.cost) throw new Error(`incomplete project ${p.key}`);
+      if (typeof p.owned !== 'boolean') throw new Error(`${p.key} has no owned flag`);
+      if (typeof p.affordable !== 'boolean') throw new Error(`${p.key} has no affordable flag`);
+    }
+  });
+
+  await t('SHORTFALL: an unaffordable project says WHAT you are short of', async () => {
+    // "Cannot afford" makes a player shrug. A named shortfall makes them place
+    // a market order, which is a move rather than a dead end.
+    const r = await get('/api/projects', token);
+    const broke = r.body.projects.filter(p => !p.affordable && !p.owned);
+    if (broke.length === 0) throw new Error('test nation can afford everything — pick a costlier one');
+    for (const p of broke) {
+      if (Object.keys(p.short || {}).length === 0) {
+        throw new Error(`${p.key} is unaffordable but reports no shortfall`);
+      }
+    }
+  });
+
+  console.log('\n-- War history --');
+
+  await t('history page loads', async () => {
+    const r = await get('/history.html');
+    eq(r.status, 200);
+    has(r.body, '/js/history.js', 'history.html');
+  });
+
+  await t('war history includes ENDED wars, unlike /api/wars', async () => {
+    const hist = await get('/api/war-history', token);
+    eq(hist.status, 200);
+    if (!Array.isArray(hist.body.wars)) throw new Error('no wars array');
+    for (const w of hist.body.wars) {
+      if (typeof w.youAttacked !== 'boolean') throw new Error('youAttacked missing');
+      if (typeof w.battleCount !== 'number') throw new Error('battleCount missing');
+    }
+  });
+
+  await t('BATTLES ARE PRIVATE TO THE TWO NATIONS THAT FOUGHT', async () => {
+    // Without this check, guessing a war id gives you every battle in the game,
+    // which is a straightforward intelligence advantage over everyone else.
+    const hist = await get('/api/war-history', token);
+    if (hist.body.wars.length === 0) return;      // nothing to check yet
+    const warId = hist.body.wars[0].id;
+
+    const mine = await get(`/api/war/${warId}/battles`, token);
+    eq(mine.status, 200, 'participant can read');
+
+    const theirs = await get(`/api/war/${warId}/battles`, outsiderToken);
+    if (theirs.status === 200) throw new Error('a non-participant read the battles');
+  });
+
   console.log('\n-- Mobile --');
 
   await t('mobile.css is served', async () => {
@@ -532,8 +963,11 @@ async function cleanup() {
 
   await t('EVERY page loads mobile.css, and AFTER app.css', async () => {
     // Order matters: mobile.css overrides, so it must come second.
-    for (const p of ['/index.html','/dashboard.html','/cities.html','/economy.html',
-                     '/policy.html','/market.html','/military.html','/admin.html']) {
+    // index.html (the landing page) is excluded on purpose — it ships its own
+    // self-contained stylesheet and never loads the game CSS.
+    for (const p of ['/login.html','/dashboard.html','/cities.html','/economy.html',
+                     '/policy.html','/market.html','/military.html','/admin.html',
+                     '/projects.html','/history.html','/rankings.html']) {
       const r = await get(p);
       if (!r.body.includes('mobile.css')) throw new Error(`${p} does not load mobile.css`);
       if (r.body.indexOf('app.css') > r.body.indexOf('mobile.css')) {
@@ -545,8 +979,10 @@ async function cleanup() {
   await t('every page declares a viewport', async () => {
     // Without this a phone renders at 980px and scales down — everything
     // becomes unreadably small regardless of the CSS.
-    for (const p of ['/index.html','/dashboard.html','/cities.html','/economy.html',
-                     '/policy.html','/market.html','/military.html','/admin.html']) {
+    for (const p of ['/index.html','/login.html','/privacy.html','/terms.html',
+                     '/dashboard.html','/cities.html','/economy.html',
+                     '/policy.html','/market.html','/military.html','/admin.html',
+                     '/projects.html','/history.html','/rankings.html']) {
       const r = await get(p);
       if (!r.body.includes('name="viewport"')) throw new Error(`${p} has no viewport meta`);
       if (!r.body.includes('width=device-width')) throw new Error(`${p} viewport is not device-width`);
@@ -561,6 +997,8 @@ async function cleanup() {
       ['/js/market.js', ['You hold', 'Bid', 'Ask', 'Last', 'Change']],
       ['/js/military.js', ['Score', 'Cities', 'Infrastructure']],
       ['/js/admin.js', ['Email', 'Money', 'Status']],
+      ['/js/rankings.js', ['Nation', 'Score', 'Cities', 'Infrastructure']],
+      ['/js/history.js', ['Turn', 'Attack', 'Result', 'Loot']],
     ];
     for (const [file, labels] of checks) {
       const r = await get(file);

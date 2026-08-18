@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Policy — SOVRA</title>
+<title>Projects — SOVRA</title>
 <link rel="stylesheet" href="/css/app.css">
 <link rel="stylesheet" href="/css/mobile.css">
 </head>
@@ -19,11 +19,10 @@
     <a href="/dashboard.html">Situation</a>
     <a href="/cities.html">Cities</a>
     <a href="/economy.html">Economy</a>
-    <a href="/policy.html" aria-current="page">Policy</a>
+    <a href="/policy.html">Policy</a>
+    <a href="/projects.html" aria-current="page">Projects</a>
     <a href="/market.html">Market</a>
     <a href="/military.html">Military</a>
-    <a href="/projects.html">Projects</a>
-    <a href="/history.html">History</a>
     <a href="/rankings.html">Rankings</a>
     <a href="/wiki/">Wiki</a>
     <a href="#" id="signOut">Sign out</a>
@@ -33,29 +32,37 @@
 <main class="wrap">
 
   <div style="margin-bottom:1.2rem;">
-    <p class="eyebrow">Government</p>
-    <h1>Policy</h1>
+    <p class="eyebrow">National investment</p>
+    <h1>Projects</h1>
     <p class="muted" style="font-size:.85rem; max-width:52rem; margin-top:.5rem; line-height:1.6;">
-      Three slots — one economic, one social, one military. Every policy gives
-      something and takes something away; there is no free option. Changing one
-      locks that slot for several days, so a doctrine has to be worth living with.
+      Permanent, nation-wide, and impossible to sell. Every project is a coefficient
+      on a formula you already have — never a new system. Each one also adds score,
+      which widens the range of nations allowed to declare on you.
+      <a href="/wiki/projects.html">Full project reference</a>
     </p>
   </div>
 
   <div id="msg" class="msg hidden"></div>
 
-  <!-- What your current government is actually doing -->
   <section class="panel" style="margin-bottom:var(--gap-l)">
-    <header><h2>In force</h2><span class="eyebrow" id="ampLine"></span></header>
-    <div class="body"><div id="current"></div></div>
+    <header><h2>Standing</h2><span class="eyebrow" id="standingNote"></span></header>
+    <div class="body"><div id="standing"></div></div>
   </section>
 
-  <!-- One block per slot -->
-  <div id="slots"></div>
+  <div class="row-controls" style="margin-bottom:.8rem;">
+    <label class="muted" style="font-size:.72rem;">
+      <input type="checkbox" id="hideOwned"> Hide what I already own
+    </label>
+    <label class="muted" style="font-size:.72rem; margin-left:1rem;">
+      <input type="checkbox" id="onlyAffordable"> Only what I can afford now
+    </label>
+  </div>
+
+  <div id="groups"></div>
 
 </main>
 
 <script src="/js/api.js"></script>
-<script src="/js/policy.js"></script>
+<script src="/js/projects.js"></script>
 </body>
 </html>

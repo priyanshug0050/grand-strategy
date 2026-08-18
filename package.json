@@ -1,5 +1,5 @@
 {
-  "name": "grand-strategy",
+  "name": "sovra",
   "version": "0.1.0",
   "description": "Multiplayer nation simulation (PBBG)",
   "main": "server.js",
@@ -7,6 +7,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "db:setup": "psql -U postgres -f db/schema.sql",
+    "wiki": "node make-wiki.js",
     "test": "node tests/run-all.js",
     "test:engine": "node tests/test-city.js && node tests/test-population.js && node tests/test-economy.js && node tests/test-military.js && node tests/test-combat.js && node tests/test-tick.js",
     "test:db": "node tests/test-persistence.js && node tests/test-api.js"

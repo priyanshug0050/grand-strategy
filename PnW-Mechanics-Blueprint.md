@@ -1,6 +1,6 @@
 # Politics & War — Complete Mechanics Blueprint
 
-Reference document for reimplementation in **Grand Strategy** (Node/Express/PostgreSQL PBBG).
+Reference document for reimplementation in **SOVRA** (Node/Express/PostgreSQL PBBG).
 
 Every formula below is the live P&W formula as documented by the game and its wikis. Notes marked
 **[ADAPT]** flag where our design (Force/Magnetism axis, 4-layer tick engine) diverges or where the

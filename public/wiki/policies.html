@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Policies — SOVRA Wiki</title>
+<meta name="description" content="All 18 policies in SOVRA across the economic, social and military slots. Every policy has a stated cost as well as a gain — no free bonuses. Generated directly from the game engine.">
+<link rel="canonical" href="https://playsovra.com/wiki/policies.html">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#08090C">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="SOVRA">
+<meta property="og:title" content="Policies — SOVRA Wiki">
+<meta property="og:description" content="All 18 policies in SOVRA across the economic, social and military slots. Every policy has a stated cost as well as a gain — no free bonuses. Generated directly from the game engine.">
+<meta property="og:url" content="https://playsovra.com/wiki/policies.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08090C; --bg2:#0C0E13; --panel:#12151C; --panel2:#171B24;
+  --line:#232935; --line2:#2E3646;
+  --ink:#EEF1F6; --ink2:#A9B2C3; --ink3:#6E7994;
+  --gold:#F5B027; --gold-dim:#8A6413; --cyan:#4DA3FF; --red:#E2483D; --green:#3FBF7F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+
+header{position:sticky;top:0;z-index:50;background:rgba(8,9,12,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .mark{font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;letter-spacing:.14em;color:var(--ink)}
+.brand .mark span{color:var(--gold)}
+.brand .sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+.navlinks{display:flex;align-items:center;gap:24px}
+.navlinks a{font-size:14px;font-weight:500;color:var(--ink2);text-decoration:none}
+.navlinks a:hover,.navlinks a.on{color:var(--gold);text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;padding:9px 18px;border-radius:10px;background:var(--gold);color:#1A1204;text-decoration:none}
+.btn:hover{text-decoration:none}
+
+.doc-hero{padding:52px 0 32px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(245,176,39,.05),transparent)}
+.crumb{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px}
+.crumb a{color:var(--gold)}
+h1{font-family:'Orbitron',sans-serif;font-weight:800;font-size:clamp(28px,5vw,42px);line-height:1.15;margin-bottom:14px}
+.standfirst{color:var(--ink2);font-size:17px;max-width:720px}
+
+.layout{display:grid;grid-template-columns:240px 1fr;gap:52px;padding:44px 0 90px;align-items:start}
+nav.toc{position:sticky;top:90px;border-left:1px solid var(--line);padding-left:18px}
+nav.toc h4{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;font-weight:700}
+nav.toc a{display:block;font-size:13.5px;color:var(--ink2);padding:5px 0;text-decoration:none;line-height:1.45}
+nav.toc a:hover{color:var(--gold);text-decoration:none}
+
+article{max-width:800px;min-width:0}
+article section{margin-bottom:52px;scroll-margin-top:92px}
+article h2{font-family:'Orbitron',sans-serif;font-weight:600;font-size:21px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+article h3{font-size:16px;font-weight:700;margin:26px 0 8px;color:var(--ink)}
+article p{color:var(--ink2);margin-bottom:14px}
+article ul,article ol{color:var(--ink2);margin:0 0 14px 20px}
+article li{margin-bottom:8px}
+article strong{color:var(--ink);font-weight:600}
+article em{color:var(--ink);font-style:italic}
+
+.formula{background:#0A0C11;border:1px solid var(--line2);border-left:3px solid var(--cyan);border-radius:10px;padding:15px 18px;margin:16px 0;overflow-x:auto}
+.formula code{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13.5px;color:var(--ink);white-space:pre;display:block}
+.formula .fnote{display:block;margin-top:9px;font-size:13px;color:var(--ink3)}
+
+.worked{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:16px 18px;margin:16px 0}
+.worked .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:10px}
+table.calc{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px}
+table.calc td{padding:5px 0;border:0;color:var(--ink2);white-space:normal}
+table.calc td:last-child{text-align:right;color:var(--ink);font-weight:600;padding-left:14px}
+table.calc tr:last-child td{border-top:1px solid var(--line);padding-top:9px;color:var(--gold)}
+
+.note{background:var(--panel);border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:10px;padding:16px 18px;margin:18px 0}
+.note p{margin-bottom:0;font-size:14.5px}
+.note .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:8px}
+.note.warn{border-left-color:var(--red)} .note.warn .t{color:var(--red)}
+.note.trap{border-left-color:var(--cyan)} .note.trap .t{color:var(--cyan)}
+
+table{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th{background:var(--panel2);text-align:left;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);padding:11px 12px;font-weight:700;white-space:nowrap}
+td{padding:10px 12px;border-top:1px solid var(--line);color:var(--ink2);vertical-align:top}
+td:first-child{color:var(--ink);font-weight:500}
+td.n{font-family:'JetBrains Mono',ui-monospace,monospace;text-align:right;white-space:nowrap}
+.good{color:var(--green)} .bad{color:var(--red)} .dim{color:var(--ink3)}
+
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:26px 0}
+.wcard{display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;text-decoration:none;transition:border-color .2s,transform .2s}
+.wcard:hover{border-color:var(--gold-dim);transform:translateY(-2px);text-decoration:none}
+.wcard h3{font-family:'Orbitron',sans-serif;font-size:16px;color:var(--ink);margin:0 0 8px}
+.wcard p{color:var(--ink2);font-size:14px;margin:0}
+
+footer{border-top:1px solid var(--line);padding:40px 0;background:var(--bg2)}
+.legal{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--ink3);font-size:13px}
+.legal a{color:var(--ink2)}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;gap:0;padding-top:28px}
+  nav.toc{position:static;border-left:0;border-bottom:1px solid var(--line);padding:0 0 22px;margin-bottom:30px}
+  nav.toc a{display:inline-block;margin-right:16px}
+  .navlinks{display:none}
+  .cards{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .brand .sub{display:none}
+  table{display:block;overflow-x:auto;white-space:nowrap}
+  table.calc{white-space:normal}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/"><span class="mark">SOV<span>RA</span></span><span class="sub">The World Order</span></a>
+    <nav class="navlinks">
+      <a href="/wiki/">Wiki</a>
+      <a href="/wiki/cities.html">Cities</a>
+      <a href="/wiki/economy.html">Economy</a>
+      <a href="/wiki/population.html">Population</a>
+      <a href="/wiki/war.html">War</a>
+      <a href="/wiki/policies.html" class="on">Policies</a>
+      <a href="/wiki/projects.html">Projects</a>
+    </nav>
+    <a class="btn" href="/login.html">Play Free</a>
+  </div>
+</header>
+
+<div class="doc-hero">
+  <div class="wrap">
+    <p class="crumb"><a href="/">SOVRA</a> · <a href="/wiki/">Wiki</a> · Policies</p>
+    <h1>Policies</h1>
+    <p class="standfirst">Three slots, one active policy in each, 18 in total. Every single one costs you something as well as giving you something — that rule is enforced by an automated test, not by good intentions.</p>
+  </div>
+</div>
+
+<div class="wrap layout">
+  <nav class="toc">
+    <h4>On this page</h4>
+    <a href="#rule">The one rule</a>
+    <a href="#economic">Economic</a>
+    <a href="#social">Social</a>
+    <a href="#military">Military</a>
+    <a href="#amplify">Projects that amplify</a>
+    <a href="#wired">What they touch</a>
+  </nav>
+  <article>
+<section id="rule">
+<h2>The one rule</h2>
+
+<p>Politics &amp; War's domestic policies are pure upside: you pick the one that suits your playstyle and there is no reason to ever reconsider. That collapses the meta onto one obvious choice per archetype, and it makes the entire system a formality.</p>
+<p>In SOVRA <strong>every policy has a cost</strong>. Laissez-Faire raises income and lowers raw output. State Industry raises manufacturing and taxes your income. There is no strictly best pick, only a pick that fits what you are currently doing.</p>
+<div class="note "><div class="t">Enforced by a test, not a promise</div><p>The test suite contains a check that iterates over every policy and fails the build if any of them has an empty cost. A future policy cannot quietly become a free bonus — the build stops first.</p></div>
+<p>Each slot locks for <strong>5 days</strong> after a change, so switching is a commitment rather than a per-battle toggle. Before you commit, the game shows you a full diff of what changes.</p>
+
+</section>
+
+<section id="economic">
+<h2>Economic slot</h2>
+
+<p></p>
+<table>
+<thead><tr><th>Policy</th><th>Gain</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td data-label="Policy"><strong>Laissez-Faire</strong><br><span class="dim">Government steps back. Trade thrives, industry is left to fend for itself.</span></td><td data-label="Gain"><span class="good">gross income +6%</span></td><td data-label="Cost"><span class="bad">mine and farm output -10%</span></td></tr>
+<tr><td data-label="Policy"><strong>State Industry</strong><br><span class="dim">Refineries run under state direction — more output, at the cost of a taxed and throttled market.</span></td><td data-label="Gain"><span class="good">refinery output +15%</span></td><td data-label="Cost"><span class="bad">gross income -8%</span></td></tr>
+<tr><td data-label="Policy"><strong>Urbanisation</strong><br><span class="dim">Cheap, fast construction. Nobody stops to ask what it does to the air.</span></td><td data-label="Gain"><span class="good">infrastructure cost -8%</span></td><td data-label="Cost"><span class="bad">pollution +15%</span></td></tr>
+<tr><td data-label="Policy"><strong>Agrarian Reform</strong><br><span class="dim">Land redistributed to farmers. Fields flourish; the cities that trade with them do not.</span></td><td data-label="Gain"><span class="good">land cost -10%</span><br><span class="good">mine and farm output +8%</span></td><td data-label="Cost"><span class="bad">commerce -5%</span></td></tr>
+<tr><td data-label="Policy"><strong>Manifest Destiny</strong><br><span class="dim">Expansion above all. New cities are cheap; the ones you already hold are neglected.</span></td><td data-label="Gain"><span class="good">new city cost -8%</span></td><td data-label="Cost"><span class="bad">infrastructure cost +8%</span></td></tr>
+<tr><td data-label="Policy"><strong>Austerity</strong><br><span class="dim">Budgets cut everywhere. Buildings cost less to run, and the economy runs colder.</span></td><td data-label="Gain"><span class="good">building upkeep -15%</span></td><td data-label="Cost"><span class="bad">gross income -5%</span></td></tr>
+</tbody></table>
+
+</section>
+
+<section id="social">
+<h2>Social slot</h2>
+
+<p></p>
+<table>
+<thead><tr><th>Policy</th><th>Gain</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td data-label="Policy"><strong>Public Health</strong><br><span class="dim">Clinics in every district. Fewer people die; the bill lands on your buildings.</span></td><td data-label="Gain"><span class="good">disease -1.5%</span></td><td data-label="Cost"><span class="bad">building upkeep +12%</span></td></tr>
+<tr><td data-label="Policy"><strong>Police State</strong><br><span class="dim">Order enforced hard. Crime collapses, and so does the informal trade that fed your cities.</span></td><td data-label="Gain"><span class="good">crime -3.0%</span></td><td data-label="Cost"><span class="bad">gross income -4%</span></td></tr>
+<tr><td data-label="Policy"><strong>Open Borders</strong><br><span class="dim">Anyone may settle. Cities fill faster than their sanitation can cope.</span></td><td data-label="Gain"><span class="good">city age bonus +8%</span></td><td data-label="Cost"><span class="bad">disease +1.0%</span></td></tr>
+<tr><td data-label="Policy"><strong>Rationing</strong><br><span class="dim">Food is measured out. Stores last far longer; nobody enjoys it.</span></td><td data-label="Gain"><span class="good">food eaten -25%</span></td><td data-label="Cost"><span class="bad">gross income -5%</span></td></tr>
+<tr><td data-label="Policy"><strong>Green Initiative</strong><br><span class="dim">Emissions capped. The air clears and the refineries slow to a crawl.</span></td><td data-label="Gain"><span class="good">pollution -20%</span></td><td data-label="Cost"><span class="bad">refinery output -10%</span></td></tr>
+<tr><td data-label="Policy"><strong>Free Press</strong><br><span class="dim">Information moves freely. So does commerce — and so do the people exploiting it.</span></td><td data-label="Gain"><span class="good">commerce +5%</span></td><td data-label="Cost"><span class="bad">crime +1.0%</span></td></tr>
+</tbody></table>
+
+</section>
+
+<section id="military">
+<h2>Military slot</h2>
+
+<p></p>
+<table>
+<thead><tr><th>Policy</th><th>Gain</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td data-label="Policy"><strong>Standing Army</strong><br><span class="dim">A small professional force. Cheap to keep, slow to grow.</span></td><td data-label="Gain"><span class="good">military upkeep -20%</span></td><td data-label="Cost"><span class="bad">recruitment rate -10%</span></td></tr>
+<tr><td data-label="Policy"><strong>Total Mobilisation</strong><br><span class="dim">The whole nation is a recruiting ground. You will fill your barracks and empty your treasury.</span></td><td data-label="Gain"><span class="good">recruitment rate +25%</span></td><td data-label="Cost"><span class="bad">military upkeep +30%</span></td></tr>
+<tr><td data-label="Policy"><strong>Fortress Doctrine</strong><br><span class="dim">Dig in and hold. Your cities survive what would flatten others; your offensives crawl.</span></td><td data-label="Gain"><span class="good">damage you take -12%</span></td><td data-label="Cost"><span class="bad">damage you deal -10%</span></td></tr>
+<tr><td data-label="Policy"><strong>Blitzkrieg</strong><br><span class="dim">Hit hard, hit first, accept the butcher’s bill.</span></td><td data-label="Gain"><span class="good">damage you deal +12%</span></td><td data-label="Cost"><span class="bad">your casualties +15%</span></td></tr>
+<tr><td data-label="Policy"><strong>Privateering</strong><br><span class="dim">War for profit. You come home rich, having broken very little.</span></td><td data-label="Gain"><span class="good">loot you take +25%</span></td><td data-label="Cost"><span class="bad">damage you deal -15%</span></td></tr>
+<tr><td data-label="Policy"><strong>Deep Cover</strong><br><span class="dim">Budget shifted from barracks to back rooms.</span></td><td data-label="Gain"><span class="good">espionage odds +20%</span></td><td data-label="Cost"><span class="bad">recruitment rate -10%</span></td></tr>
+</tbody></table>
+
+</section>
+
+<section id="amplify">
+<h2>Amplifying policies</h2>
+
+<p>The Government Support Agency and Bureau of Domestic Affairs projects each amplify your active policy by <strong>50%</strong>.</p>
+<div class="note "><div class="t">They amplify the gain, never the cost</div><p>Amplification applies to the deviation from neutral on the beneficial side only. A policy that gives -5% city cost becomes -7.5%; its cost stays exactly where it was. This is the one place in the game where you get something without paying for it, and it costs a project slot and $20,000,000 to have.</p></div>
+<p>Because policies are multipliers rather than additions, stacking several downward effects never reaches zero — a chain of -8% multipliers converges, it does not cancel your economy.</p>
+
+</section>
+
+<section id="wired">
+<h2>Where policies actually apply</h2>
+
+<p>Policies are not a separate scoring layer. Each one is a coefficient on a formula that already exists, wired into:</p>
+<ul>
+  <li><a href="/wiki/cities.html#infra">City, infrastructure and land costs</a></li>
+  <li><a href="/wiki/economy.html#income">Income, upkeep, production, commerce and food</a></li>
+  <li><a href="/wiki/population.html#density">Disease, crime and city age</a></li>
+  <li><a href="/wiki/war.html#damage">Combat — both attacker and defender doctrine apply at once</a></li>
+  <li><a href="/wiki/war.html#espionage">Espionage odds</a></li>
+</ul>
+<p>That is why a policy change shows up immediately in your ledger rather than in a separate panel. There is nowhere else for it to show up.</p>
+
+</section>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap legal">
+    <span>© <span id="yr">2026</span> SOVRA — The World Order · <a href="/wiki/">Wiki</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></span>
+    <span class="mono">Generated from the game engine · playsovra.com</span>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>

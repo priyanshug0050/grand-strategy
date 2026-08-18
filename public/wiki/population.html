@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Population, Disease and Crime — SOVRA Wiki</title>
+<meta name="description" content="How population works in SOVRA: base population from infrastructure, the squared density term that drives disease, crime, the city age multiplier, and exactly how much land you need to reach zero disease.">
+<link rel="canonical" href="https://playsovra.com/wiki/population.html">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#08090C">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="SOVRA">
+<meta property="og:title" content="Population, Disease and Crime — SOVRA Wiki">
+<meta property="og:description" content="How population works in SOVRA: base population from infrastructure, the squared density term that drives disease, crime, the city age multiplier, and exactly how much land you need to reach zero disease.">
+<meta property="og:url" content="https://playsovra.com/wiki/population.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08090C; --bg2:#0C0E13; --panel:#12151C; --panel2:#171B24;
+  --line:#232935; --line2:#2E3646;
+  --ink:#EEF1F6; --ink2:#A9B2C3; --ink3:#6E7994;
+  --gold:#F5B027; --gold-dim:#8A6413; --cyan:#4DA3FF; --red:#E2483D; --green:#3FBF7F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+
+header{position:sticky;top:0;z-index:50;background:rgba(8,9,12,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .mark{font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;letter-spacing:.14em;color:var(--ink)}
+.brand .mark span{color:var(--gold)}
+.brand .sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+.navlinks{display:flex;align-items:center;gap:24px}
+.navlinks a{font-size:14px;font-weight:500;color:var(--ink2);text-decoration:none}
+.navlinks a:hover,.navlinks a.on{color:var(--gold);text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;padding:9px 18px;border-radius:10px;background:var(--gold);color:#1A1204;text-decoration:none}
+.btn:hover{text-decoration:none}
+
+.doc-hero{padding:52px 0 32px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(245,176,39,.05),transparent)}
+.crumb{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px}
+.crumb a{color:var(--gold)}
+h1{font-family:'Orbitron',sans-serif;font-weight:800;font-size:clamp(28px,5vw,42px);line-height:1.15;margin-bottom:14px}
+.standfirst{color:var(--ink2);font-size:17px;max-width:720px}
+
+.layout{display:grid;grid-template-columns:240px 1fr;gap:52px;padding:44px 0 90px;align-items:start}
+nav.toc{position:sticky;top:90px;border-left:1px solid var(--line);padding-left:18px}
+nav.toc h4{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;font-weight:700}
+nav.toc a{display:block;font-size:13.5px;color:var(--ink2);padding:5px 0;text-decoration:none;line-height:1.45}
+nav.toc a:hover{color:var(--gold);text-decoration:none}
+
+article{max-width:800px;min-width:0}
+article section{margin-bottom:52px;scroll-margin-top:92px}
+article h2{font-family:'Orbitron',sans-serif;font-weight:600;font-size:21px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+article h3{font-size:16px;font-weight:700;margin:26px 0 8px;color:var(--ink)}
+article p{color:var(--ink2);margin-bottom:14px}
+article ul,article ol{color:var(--ink2);margin:0 0 14px 20px}
+article li{margin-bottom:8px}
+article strong{color:var(--ink);font-weight:600}
+article em{color:var(--ink);font-style:italic}
+
+.formula{background:#0A0C11;border:1px solid var(--line2);border-left:3px solid var(--cyan);border-radius:10px;padding:15px 18px;margin:16px 0;overflow-x:auto}
+.formula code{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13.5px;color:var(--ink);white-space:pre;display:block}
+.formula .fnote{display:block;margin-top:9px;font-size:13px;color:var(--ink3)}
+
+.worked{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:16px 18px;margin:16px 0}
+.worked .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:10px}
+table.calc{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px}
+table.calc td{padding:5px 0;border:0;color:var(--ink2);white-space:normal}
+table.calc td:last-child{text-align:right;color:var(--ink);font-weight:600;padding-left:14px}
+table.calc tr:last-child td{border-top:1px solid var(--line);padding-top:9px;color:var(--gold)}
+
+.note{background:var(--panel);border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:10px;padding:16px 18px;margin:18px 0}
+.note p{margin-bottom:0;font-size:14.5px}
+.note .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:8px}
+.note.warn{border-left-color:var(--red)} .note.warn .t{color:var(--red)}
+.note.trap{border-left-color:var(--cyan)} .note.trap .t{color:var(--cyan)}
+
+table{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th{background:var(--panel2);text-align:left;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);padding:11px 12px;font-weight:700;white-space:nowrap}
+td{padding:10px 12px;border-top:1px solid var(--line);color:var(--ink2);vertical-align:top}
+td:first-child{color:var(--ink);font-weight:500}
+td.n{font-family:'JetBrains Mono',ui-monospace,monospace;text-align:right;white-space:nowrap}
+.good{color:var(--green)} .bad{color:var(--red)} .dim{color:var(--ink3)}
+
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:26px 0}
+.wcard{display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;text-decoration:none;transition:border-color .2s,transform .2s}
+.wcard:hover{border-color:var(--gold-dim);transform:translateY(-2px);text-decoration:none}
+.wcard h3{font-family:'Orbitron',sans-serif;font-size:16px;color:var(--ink);margin:0 0 8px}
+.wcard p{color:var(--ink2);font-size:14px;margin:0}
+
+footer{border-top:1px solid var(--line);padding:40px 0;background:var(--bg2)}
+.legal{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--ink3);font-size:13px}
+.legal a{color:var(--ink2)}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;gap:0;padding-top:28px}
+  nav.toc{position:static;border-left:0;border-bottom:1px solid var(--line);padding:0 0 22px;margin-bottom:30px}
+  nav.toc a{display:inline-block;margin-right:16px}
+  .navlinks{display:none}
+  .cards{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .brand .sub{display:none}
+  table{display:block;overflow-x:auto;white-space:nowrap}
+  table.calc{white-space:normal}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/"><span class="mark">SOV<span>RA</span></span><span class="sub">The World Order</span></a>
+    <nav class="navlinks">
+      <a href="/wiki/">Wiki</a>
+      <a href="/wiki/cities.html">Cities</a>
+      <a href="/wiki/economy.html">Economy</a>
+      <a href="/wiki/population.html" class="on">Population</a>
+      <a href="/wiki/war.html">War</a>
+      <a href="/wiki/policies.html">Policies</a>
+      <a href="/wiki/projects.html">Projects</a>
+    </nav>
+    <a class="btn" href="/login.html">Play Free</a>
+  </div>
+</header>
+
+<div class="doc-hero">
+  <div class="wrap">
+    <p class="crumb"><a href="/">SOVRA</a> · <a href="/wiki/">Wiki</a> · Population, Disease and Crime</p>
+    <h1>Population, Disease and Crime</h1>
+    <p class="standfirst">Population is not a resource you store — it is recomputed from your city every turn. Nothing is remembered, so nothing can silently drift. Understand the density term and you understand most of SOVRA's city planning.</p>
+  </div>
+</div>
+
+<div class="wrap layout">
+  <nav class="toc">
+    <h4>On this page</h4>
+    <a href="#base">Base population</a>
+    <a href="#density">Density &amp;amp; disease</a>
+    <a href="#floor">The disease floor</a>
+    <a href="#crime">Crime</a>
+    <a href="#age">City age</a>
+    <a href="#order">Order of operations</a>
+  </nav>
+  <article>
+<section id="base">
+<h2>Base population</h2>
+
+<p>Infrastructure creates people. Age adds a slow drift on top.</p>
+<div class="formula"><code>base = (infra * 100) + (infra / 1,000) * (100 * ageDays / 3)</code></div>
+<div class="worked"><div class="t">Live from the engine</div>
+<table class="calc"><tr><td>1,000 infra, day 0</td><td>100,000</td></tr><tr><td>1,000 infra, day 365</td><td>112,167</td></tr><tr><td>2,000 infra, day 365</td><td>224,333</td></tr></table></div>
+<p>This is the number every other term in this page reduces. Disease and crime kill a fraction of the <em>base</em>, and the age multiplier scales what survives.</p>
+
+</section>
+
+<section id="density">
+<h2>Density and disease</h2>
+
+<p>Density is infrastructure per unit of land, scaled by 100.</p>
+<div class="formula"><code>density = (infra * 100) / land</code></div>
+<div class="formula"><code>diseaseRate% = (0.01 * density^2 - 25) / 100 * 100
+             + infra / 1,000
+             - hospitals * 2.5
+             + pollution * 0.05</code><span class="fnote">Clamped to 0–100%. Deaths = rate &times; infra &times; 100.</span></div>
+<p>The <strong>squared</strong> density term is the most load-bearing line in the game. It is what makes land worth buying, what forces hospitals into the slot competition, and what turns pollution into a real cost rather than a cosmetic number.</p>
+<table>
+<thead><tr><th>Density</th><th>Disease from density alone</th></tr></thead>
+<tbody>
+<tr><td data-label="Density">50</td><td data-label="Disease from density alone">0.00%</td></tr>
+<tr><td data-label="Density">100</td><td data-label="Disease from density alone">0.75%</td></tr>
+<tr><td data-label="Density">200</td><td data-label="Disease from density alone">3.75%</td></tr>
+<tr><td data-label="Density">333</td><td data-label="Disease from density alone">10.84%</td></tr>
+<tr><td data-label="Density">500</td><td data-label="Disease from density alone">24.75%</td></tr>
+<tr><td data-label="Density">1,000</td><td data-label="Disease from density alone">99.75%</td></tr>
+</tbody></table>
+<div class="note trap"><div class="t">Density ignores live population — deliberately</div><p>Disease is computed from infrastructure and land, never from the current population. If it fed back on live population you would get an oscillation: people die, density falls, disease falls, people return, density rises. The city would never settle. Because the inputs are static, evaluating the same city twice always gives the same answer.</p></div>
+<div class="worked"><div class="t">Live from the engine — same infrastructure, different land</div>
+<table class="calc"><tr><td>Healthy: 1,000 infra / 2,000 land — density</td><td>50.0</td></tr><tr><td>&nbsp;&nbsp;disease</td><td>1.00%</td></tr><tr><td>&nbsp;&nbsp;final population</td><td>153,493</td></tr><tr><td>Cramped: 1,000 infra / 300 land — density</td><td>333.3</td></tr><tr><td>&nbsp;&nbsp;disease</td><td>11.86%</td></tr><tr><td>&nbsp;&nbsp;final population</td><td>136,519</td></tr><tr><td>Cost of getting it wrong</td><td>16,974 people</td></tr></table></div>
+
+</section>
+
+<section id="floor">
+<h2>The disease floor</h2>
+
+<p>As density approaches zero the squared term vanishes, leaving a floor that land can never get below:</p>
+<div class="formula"><code>floor% = -25 + infra / 1,000 - hospitals * 2.5 + pollution * 0.05</code></div>
+<p>The infrastructure term is the reason. Past roughly 250 infrastructure, <strong>no amount of land reaches 0% disease</strong>. That is not a bug — it is the mechanism that forces hospitals into a large city's improvement slots.</p>
+<div class="worked"><div class="t">Live from the engine</div>
+<table class="calc"><tr><td>200 infra: land needed for 0% disease</td><td>895 land</td></tr><tr><td>2,000 infra: best possible with land alone</td><td>1.75%</td></tr><tr><td>1,000 infra / 400 land: hospitals for 0%</td><td>3</td></tr></table></div>
+<p>Each hospital removes a flat <strong>2.5%</strong>, and the Clinical Research Center project removes another 2.5% on top.</p>
+
+</section>
+
+<section id="crime">
+<h2>Crime</h2>
+
+<p>Crime is the mirror of disease: it rises with population and falls with commerce and police stations.</p>
+<div class="formula"><code>crime% = ((103 - commerce)^2 + basePop * 0.1) / 111,111
+        - police * 2.5</code><span class="fnote">Crime deaths are weighted &times;4 — a percent of crime hurts far more than a percent of disease.</span></div>
+<p>The squared commerce term makes commerce buildings do double duty: they raise income <em>and</em> suppress crime, so a developed city is safer as well as richer. That is a better incentive than a flat penalty, and it means the answer to a crime problem is often "build a bank", not "build a police station".</p>
+<table>
+<thead><tr><th>Commerce</th><th>Crime at 110k population</th></tr></thead>
+<tbody>
+<tr><td data-label="Commerce">0</td><td data-label="Crime at 110k population">0.194%</td></tr>
+<tr><td data-label="Commerce">50</td><td data-label="Crime at 110k population">0.124%</td></tr>
+<tr><td data-label="Commerce">100</td><td data-label="Crime at 110k population">0.099%</td></tr>
+</tbody></table>
+<div class="note warn"><div class="t">Unverified</div><p>The crime equation is our own — Politics &amp; War has never published theirs. The shape is a large improvement on a linear version, which made large cities lose an absurd fraction of their people every turn, but the coefficients are still being tuned.</p></div>
+
+</section>
+
+<section id="age">
+<h2>City age</h2>
+
+<p>Old cities are worth more. The multiplier is logarithmic, so it is negligible early and becomes a real retention reward later.</p>
+<div class="formula"><code>multiplier = 1 + ln(ageDays) / 15</code></div>
+<table>
+<thead><tr><th>City age (days)</th><th>Multiplier</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td data-label="City age (days)">1</td><td data-label="Multiplier">&times;1.000</td><td data-label="Effect"><span class="dim">+0%</span></td></tr>
+<tr><td data-label="City age (days)">30</td><td data-label="Multiplier">&times;1.227</td><td data-label="Effect"><span class="good">+22.7%</span></td></tr>
+<tr><td data-label="City age (days)">100</td><td data-label="Multiplier">&times;1.307</td><td data-label="Effect"><span class="good">+30.7%</span></td></tr>
+<tr><td data-label="City age (days)">200</td><td data-label="Multiplier">&times;1.353</td><td data-label="Effect"><span class="good">+35.3%</span></td></tr>
+<tr><td data-label="City age (days)">365</td><td data-label="Multiplier">&times;1.393</td><td data-label="Effect"><span class="good">+39.3%</span></td></tr>
+<tr><td data-label="City age (days)">1,000</td><td data-label="Multiplier">&times;1.461</td><td data-label="Effect"><span class="good">+46.1%</span></td></tr>
+</tbody></table>
+<p>Because it is logarithmic rather than linear, an old city can never run away with the game — but abandoning a mature city to found a fresh one always costs you something real.</p>
+<div class="note "><div class="t">A dead city floors, it does not vanish</div><p>Population can never fall below <strong>10</strong>. Even at 100% disease the city survives as a shell you can rebuild from, rather than disappearing and taking its improvements with it.</p></div>
+
+</section>
+
+<section id="order">
+<h2>How it all assembles</h2>
+
+<div class="formula"><code>base       = basePopulation(infra, ageDays)
+survivors  = base - diseaseDeaths - (crimeDeaths * 4)
+population = max(survivors * ageMultiplier, 10)</code></div>
+<p>Order matters: the age multiplier applies to <em>survivors</em>, not to the base. A city that is losing people to density loses the age bonus on those people too, which is why a badly shaped old city underperforms a well-shaped young one far more than the raw numbers suggest.</p>
+<p>Every one of these figures is shown, expanded, on your population page in game. You never have to trust this wiki over what the game tells you — they are generated from the same code.</p>
+
+</section>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap legal">
+    <span>© <span id="yr">2026</span> SOVRA — The World Order · <a href="/wiki/">Wiki</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></span>
+    <span class="mono">Generated from the game engine · playsovra.com</span>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>

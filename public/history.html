@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Policy — SOVRA</title>
+<title>War History — SOVRA</title>
 <link rel="stylesheet" href="/css/app.css">
 <link rel="stylesheet" href="/css/mobile.css">
 </head>
@@ -19,11 +19,11 @@
     <a href="/dashboard.html">Situation</a>
     <a href="/cities.html">Cities</a>
     <a href="/economy.html">Economy</a>
-    <a href="/policy.html" aria-current="page">Policy</a>
+    <a href="/policy.html">Policy</a>
+    <a href="/projects.html">Projects</a>
     <a href="/market.html">Market</a>
     <a href="/military.html">Military</a>
-    <a href="/projects.html">Projects</a>
-    <a href="/history.html">History</a>
+    <a href="/history.html" aria-current="page">History</a>
     <a href="/rankings.html">Rankings</a>
     <a href="/wiki/">Wiki</a>
     <a href="#" id="signOut">Sign out</a>
@@ -33,29 +33,28 @@
 <main class="wrap">
 
   <div style="margin-bottom:1.2rem;">
-    <p class="eyebrow">Government</p>
-    <h1>Policy</h1>
+    <p class="eyebrow">Record</p>
+    <h1>War History</h1>
     <p class="muted" style="font-size:.85rem; max-width:52rem; margin-top:.5rem; line-height:1.6;">
-      Three slots — one economic, one social, one military. Every policy gives
-      something and takes something away; there is no free option. Changing one
-      locks that slot for several days, so a doctrine has to be worth living with.
+      Every war you have fought, and every battle inside it. The random seed of each
+      battle is stored, so any result can be replayed through the same roll function
+      that produced it — and this page verifies that replay in front of you.
+      <a href="/wiki/war.html#rolls">How battles are decided</a>
     </p>
   </div>
 
   <div id="msg" class="msg hidden"></div>
 
-  <!-- What your current government is actually doing -->
   <section class="panel" style="margin-bottom:var(--gap-l)">
-    <header><h2>In force</h2><span class="eyebrow" id="ampLine"></span></header>
-    <div class="body"><div id="current"></div></div>
+    <header><h2>Record</h2><span class="eyebrow" id="recordNote"></span></header>
+    <div class="body"><div id="record"></div></div>
   </section>
 
-  <!-- One block per slot -->
-  <div id="slots"></div>
+  <div id="wars"></div>
 
 </main>
 
 <script src="/js/api.js"></script>
-<script src="/js/policy.js"></script>
+<script src="/js/history.js"></script>
 </body>
 </html>

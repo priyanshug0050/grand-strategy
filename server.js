@@ -238,6 +238,13 @@ app.get('/api/reference', wrap(async (req, res) => {
     resources: C.ALL_RESOURCES,
     continents: Object.keys(C.CONTINENTS),
     warTypes: C.WAR_TYPES,
+    // The UI must not invent its own wording for these. Shipping the engine's
+    // own descriptions means the war card, the wiki and the tooltip cannot
+    // drift into describing the same mechanic three different ways.
+    controlStates: C.CONTROL_STATES,
+    mapCosts: C.COMBAT.MAP_COST,
+    mapMax: C.COMBAT.MAP_MAX,
+    fortifyCasualtyIncrease: C.COMBAT.FORTIFY_CASUALTY_INCREASE,
     domesticPolicies: C.DOMESTIC_POLICIES,
     warPolicies: C.WAR_POLICIES,
     colors: C.COLORS.SELECTABLE,
@@ -246,12 +253,14 @@ app.get('/api/reference', wrap(async (req, res) => {
   });
 }));
 
+/**
+ * Public — no login. Ordered by score, because score is what decides who can
+ * attack whom. Never includes money: this endpoint is readable by anyone, and
+ * a public treasury list turns raiding into shopping.
+ */
 app.get('/api/rankings', wrap(async (req, res) => {
-  const { rows } = await db.query(
-    `SELECT id, name, color, alliance_id, city_count, total_infrastructure, project_count
-       FROM nation_summary ORDER BY total_infrastructure DESC LIMIT 100`
-  );
-  res.json({ nations: rows });
+  const limit = Number(req.query.limit) || 100;
+  res.json(await service.getRankings({ limit }));
 }));
 
 // ---- City actions ----
@@ -338,17 +347,14 @@ app.post('/api/war/:warId/preview', protect, wrap(async (req, res) => {
   res.json(await service.previewAttack(req.nationId, warId, attackType));
 }));
 
+/** Active wars, already resolved to the reader's point of view. */
 app.get('/api/wars', protect, wrap(async (req, res) => {
-  const { rows } = await db.query(
-    `SELECT w.*, a.name AS attacker_name, d.name AS defender_name
-       FROM wars w
-       JOIN nations a ON a.id = w.attacker_id
-       JOIN nations d ON d.id = w.defender_id
-      WHERE (w.attacker_id = $1 OR w.defender_id = $1) AND w.ended_turn IS NULL
-      ORDER BY w.started_turn DESC`,
-    [req.nationId]
-  );
-  res.json({ wars: rows });
+  res.json(await service.getWars(req.nationId));
+}));
+
+/** Dig in: costs MAP, raises attacker casualties, ends when you attack. */
+app.post('/api/war/:warId/fortify', protect, touchActivity, wrap(async (req, res) => {
+  res.json(await service.fortify(req.nationId, req.params.warId));
 }));
 
 /**
@@ -374,7 +380,22 @@ app.get('/api/battle/:battleId', protect, wrap(async (req, res) => {
   });
 }));
 
+/** Every war this nation has fought, ended ones included. */
+app.get('/api/war-history', protect, wrap(async (req, res) => {
+  res.json(await service.getWarHistory(req.nationId, Number(req.query.limit) || 50));
+}));
+
+/** The battles of one war — participants only. */
+app.get('/api/war/:warId/battles', protect, wrap(async (req, res) => {
+  res.json(await service.getWarBattles(req.nationId, req.params.warId));
+}));
+
 // ---- Projects & policies ----
+
+/** Catalogue, ownership and affordability in one call. */
+app.get('/api/projects', protect, wrap(async (req, res) => {
+  res.json(await service.getProjectCatalogue(req.nationId));
+}));
 
 app.post('/api/project', protect, touchActivity, wrap(async (req, res) => {
   const { project } = req.body || {};

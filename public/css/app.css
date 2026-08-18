@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Grand Strategy — visual system
+   SOVRA — visual system
 
    DIRECTION: a Cold War plotting room. Low ambient light, amber phosphor
    readouts, brass rules, chalk lettering on a status board. Alarm red is
@@ -623,3 +623,71 @@ label { display: block; font-family: var(--data); font-size: .66rem; letter-spac
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* Inline links inside body text (legal notices, hints).
+   Without this they render as default browser blue on a dark background. */
+.muted a, .lede a, p a {
+  color: var(--brass);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.muted a:hover, .lede a:hover, p a:hover { color: var(--chalk); }
+
+/* ---------- Projects ---------- */
+
+/* A built project is still shown — you need to see what you already have — but
+   it must not compete for attention with the ones you can still act on. */
+.imp.owned { opacity: .62; border-color: var(--brass-dim); }
+.imp.owned .imp-head strong { color: var(--brass); }
+
+/* ---------- Rankings & battle history ---------- */
+
+/* Same visual language as the targets table on the military page. These three
+   answer the same kind of question, so they should not look like three
+   different products. */
+table.rankings, table.battles { width: 100%; border-collapse: collapse; font-size: .8rem; }
+table.rankings th, table.battles th {
+  font-family: var(--data); font-size: .62rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--chalk-dim); text-align: left;
+  padding: .4rem .5rem; border-bottom: 1px solid var(--brass-dim); white-space: nowrap;
+}
+table.rankings td, table.battles td {
+  padding: .5rem; border-bottom: 1px solid var(--line); vertical-align: middle;
+}
+table.rankings td.num, table.battles td.num {
+  font-family: var(--data); font-variant-numeric: tabular-nums; text-align: right;
+}
+table.rankings th:nth-child(n+3), table.battles th:nth-child(n+5) { text-align: right; }
+table.rankings tbody tr:hover, table.battles tbody tr:hover { background: rgba(255,255,255,.025); }
+
+/* Your own row has to be findable in a list of 250 without reading every name. */
+table.rankings tr.myorder td { background: rgba(168,135,78,.10); }
+table.rankings tr.myorder td:first-child { box-shadow: inset 2px 0 0 var(--brass); }
+
+.good { color: var(--verdigris); }
+.bad  { color: var(--alarm); }
+button.good { color: var(--verdigris); border-color: var(--verdigris); }
+button.bad  { color: var(--alarm); border-color: var(--alarm); }
+
+/* ---------- War: control states & fortification ---------- */
+
+/* These lines exist because a player could previously lose an even fight with
+   no way to find out that their tanks were counting for half. Colour carries
+   the "who does this favour" signal; the text carries the meaning. */
+.controls { margin: .6rem 0 .2rem; }
+.ctrl {
+  display: grid; grid-template-columns: 11rem 1fr; gap: .6rem;
+  padding: .5rem .6rem; border-left: 2px solid var(--line);
+  background: rgba(255,255,255,.015); margin-bottom: .3rem;
+  font-size: .74rem; align-items: baseline;
+}
+.ctrl .k {
+  font-family: var(--data); font-size: .64rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--chalk-dim);
+}
+.ctrl .v { color: var(--chalk); line-height: 1.5; }
+.ctrl.good { border-left-color: var(--verdigris); }
+.ctrl.good .k { color: var(--verdigris); }
+.ctrl.bad { border-left-color: var(--alarm); background: rgba(196,69,58,.06); }
+.ctrl.bad .k { color: var(--alarm); }
+.ctrl button { margin-left: .5rem; padding: .25rem .6rem; font-size: .7rem; }

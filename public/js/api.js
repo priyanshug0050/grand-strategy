@@ -63,8 +63,8 @@ const API = (() => {
     // a confusing error on every panel of the page.
     if (res.status === 401 && !path.startsWith('/api/auth/')) {
       clearToken();
-      if (!location.pathname.endsWith('index.html') && location.pathname !== '/') {
-        location.href = '/index.html';
+      if (!location.pathname.endsWith('login.html')) {
+        location.href = '/login.html';
       }
       throw new ApiError('Session expired. Sign in again.', 401);
     }
@@ -83,14 +83,14 @@ const API = (() => {
 
     register: (payload) => request('/api/auth/register', { method: 'POST', body: payload }),
     login:    (email, password) => request('/api/auth/login', { method: 'POST', body: { email, password } }),
-    logout:   () => { clearToken(); location.href = '/index.html'; },
+    logout:   () => { clearToken(); location.href = '/login.html'; },
 
     nation:    () => request('/api/nation'),
     events:    (limit = 30) => request(`/api/nation/events?limit=${limit}`),
     economy:   () => request('/api/economy'),
     reference: () => request('/api/reference'),
     health:    () => request('/api/health'),
-    rankings:  () => request('/api/rankings'),
+    rankings:  (limit) => request('/api/rankings' + (limit ? `?limit=${limit}` : '')),
 
     buyInfrastructure: (cityId, target) =>
       request(`/api/city/${cityId}/infrastructure`, { method: 'POST', body: { target } }),
@@ -105,6 +105,10 @@ const API = (() => {
 
     recruit: (unit, count) => request('/api/military/recruit', { method: 'POST', body: { unit, count } }),
     wars: () => request('/api/wars'),
+    fortify: (warId) => request(`/api/war/${warId}/fortify`, { method: 'POST' }),
+    warHistory: (limit = 50) => request(`/api/war-history?limit=${limit}`),
+    warBattles: (warId) => request(`/api/war/${warId}/battles`),
+    battle: (battleId) => request(`/api/battle/${battleId}`),
     targets: () => request('/api/targets'),
     previewAttack: (warId, attackType) =>
       request(`/api/war/${warId}/preview`, { method: 'POST', body: { attackType } }),
@@ -119,6 +123,7 @@ const API = (() => {
       request('/api/market/order', { method: 'POST', body: { resource, side, price, quantity } }),
     cancelOrder: (orderId) => request(`/api/market/order/${orderId}`, { method: 'DELETE' }),
 
+    projects: () => request('/api/projects'),
     buildProject: (project) => request('/api/project', { method: 'POST', body: { project } }),
     policies: () => request('/api/policy'),
     previewPolicy: (slot, policy) =>
@@ -186,6 +191,6 @@ function clearMessage(el) {
 
 /** Redirect to login if there is no token. Call at the top of every page. */
 function requireLogin() {
-  if (!API.isLoggedIn()) { location.href = '/index.html'; return false; }
+  if (!API.isLoggedIn()) { location.href = '/login.html'; return false; }
   return true;
 }

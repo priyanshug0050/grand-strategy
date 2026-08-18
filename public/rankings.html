@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Rankings — SOVRA</title>
+<meta name="description" content="Live rankings of every nation in SOVRA, ordered by score. See who can attack whom, city counts, infrastructure and projects across the whole world.">
+<link rel="canonical" href="https://playsovra.com/rankings.html">
+<link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/css/mobile.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">SOVRA</span>
+  <div class="clock" id="clock">
+    <span class="turn" id="clockTurn">Turn —</span>
+    <span class="until" id="clockUntil"></span>
+  </div>
+  <nav id="mainNav"></nav>
+</header>
+
+<main class="wrap">
+
+  <div style="margin-bottom:1.2rem;">
+    <p class="eyebrow">The world</p>
+    <h1>Rankings</h1>
+    <p class="muted" style="font-size:.85rem; max-width:52rem; margin-top:.5rem; line-height:1.6;">
+      Every nation, ordered by score. Score is not a leaderboard vanity number —
+      it decides who is allowed to declare war on whom, which is why the table is
+      sorted by it rather than by size.
+    </p>
+  </div>
+
+  <div id="msg" class="msg hidden"></div>
+
+  <!-- Your position, when signed in -->
+  <section class="panel hidden" id="mePanel" style="margin-bottom:var(--gap-l)">
+    <header><h2>Your position</h2><span class="eyebrow" id="meRank"></span></header>
+    <div class="body"><div id="meBody"></div></div>
+  </section>
+
+  <section class="panel">
+    <header>
+      <h2>All nations</h2>
+      <span class="eyebrow" id="counts"></span>
+    </header>
+    <div class="body">
+      <div class="row-controls" style="margin-bottom:.7rem;">
+        <label class="muted" style="font-size:.72rem;">
+          Sort
+          <select id="sortBy">
+            <option value="score">Score</option>
+            <option value="infrastructure">Infrastructure</option>
+            <option value="cities">Cities</option>
+            <option value="land">Land</option>
+            <option value="projects">Projects</option>
+          </select>
+        </label>
+        <label class="muted" style="font-size:.72rem; margin-left:1rem;">
+          <input type="checkbox" id="onlyRange"> Only nations I can attack
+        </label>
+      </div>
+      <div id="table"></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/rankings.js"></script>
+</body>
+</html>

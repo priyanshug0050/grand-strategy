@@ -3,173 +3,632 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Grand Strategy</title>
-<link rel="stylesheet" href="/css/app.css">
-<link rel="stylesheet" href="/css/mobile.css">
+<title>SOVRA — The World Order | Free Multiplayer Nation Simulation Game</title>
+<meta name="description" content="SOVRA is a free browser-based nation simulation game. Build cities, run an economy, trade on an open market, fight wars — and see every number that decides your fate. No download. Play in your browser.">
+<link rel="canonical" href="https://playsovra.com/">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#08090C">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SOVRA">
+<meta property="og:title" content="SOVRA — The World Order">
+<meta property="og:description" content="Run a sovereign nation. Build cities, trade on an open market, wage war — with every formula shown, not hidden. Free multiplayer browser strategy.">
+<meta property="og:url" content="https://playsovra.com/">
+<meta property="og:image" content="https://playsovra.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SOVRA — The World Order">
+<meta name="twitter:description" content="Free multiplayer nation simulation. Cities, economy, war — and a ledger that shows every calculation.">
+<meta name="twitter:image" content="https://playsovra.com/og.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#08090C; --bg2:#0C0E13; --panel:#12151C; --panel2:#171B24;
+  --line:#232935; --line2:#2E3646;
+  --ink:#EEF1F6; --ink2:#A9B2C3; --ink3:#6E7994;
+  --gold:#F5B027; --gold-dim:#8A6413;
+  --cyan:#4DA3FF; --red:#E2483D; --green:#3FBF7F;
+  --radius:14px;
+  --maxw:1180px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+.display{font-family:'Orbitron',sans-serif;letter-spacing:.02em}
+
+/* ---------- NAV ---------- */
+header{
+  position:sticky;top:0;z-index:50;
+  background:rgba(8,9,12,.82);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .mark{font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;letter-spacing:.14em;color:var(--ink)}
+.brand .mark span{color:var(--gold)}
+.brand .sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+.navlinks{display:flex;align-items:center;gap:28px}
+.navlinks a{font-size:14px;font-weight:500;color:var(--ink2);transition:color .15s}
+.navlinks a:hover{color:var(--ink)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-weight:700;font-size:14px;letter-spacing:.02em;
+  padding:11px 22px;border-radius:10px;border:1px solid transparent;
+  cursor:pointer;transition:transform .12s,box-shadow .18s,background .18s;
+}
+.btn-primary{background:var(--gold);color:#1A1204;box-shadow:0 0 0 0 rgba(245,176,39,.5)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 28px -8px rgba(245,176,39,.65)}
+.btn-ghost{background:transparent;color:var(--ink);border-color:var(--line2)}
+.btn-ghost:hover{border-color:var(--ink3);background:rgba(255,255,255,.03)}
+.btn-lg{padding:15px 30px;font-size:15px}
+.nav .btn{padding:9px 18px}
+.burger{display:none;background:none;border:1px solid var(--line2);border-radius:9px;color:var(--ink);font-size:18px;cursor:pointer;padding:7px 12px;line-height:1}
+.mobilemenu{display:none;border-top:1px solid var(--line);background:var(--bg2);padding:10px 0 18px}
+.mobilemenu.open{display:block}
+.mobilemenu a{display:block;padding:13px 24px;font-size:15px;font-weight:500;color:var(--ink2);border-bottom:1px solid var(--line)}
+.mobilemenu a:last-child{border-bottom:0;margin-top:14px;color:#1A1204;background:var(--gold);font-weight:700;text-align:center;border-radius:10px;margin-left:24px;margin-right:24px;padding:14px 20px}
+
+/* ---------- HERO ---------- */
+.hero{position:relative;padding:96px 0 88px;overflow:hidden}
+.hero::before{
+  content:"";position:absolute;inset:-20% -10% auto -10%;height:820px;
+  background:
+    radial-gradient(60% 60% at 50% 0%, rgba(245,176,39,.13), transparent 70%),
+    radial-gradient(50% 50% at 15% 30%, rgba(77,163,255,.10), transparent 70%),
+    radial-gradient(40% 40% at 85% 20%, rgba(226,72,61,.08), transparent 70%);
+  pointer-events:none;
+}
+.grid-bg{
+  position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:64px 64px;
+  mask-image:radial-gradient(70% 60% at 50% 25%,#000 0%,transparent 78%);
+  -webkit-mask-image:radial-gradient(70% 60% at 50% 25%,#000 0%,transparent 78%);
+}
+.hero .wrap{position:relative;z-index:2;text-align:center}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink2);border:1px solid var(--line2);background:rgba(255,255,255,.02);
+  padding:7px 15px;border-radius:999px;margin-bottom:30px;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+h1.wordmark{
+  font-family:'Orbitron',sans-serif;font-weight:900;
+  font-size:clamp(56px,12vw,132px);line-height:.92;letter-spacing:.06em;
+  background:linear-gradient(180deg,#FFFFFF 12%,#B9C2D3 58%,#6E7994 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  margin-bottom:14px;
+}
+.tagline{
+  font-family:'Orbitron',sans-serif;font-weight:600;
+  font-size:clamp(13px,2.4vw,19px);letter-spacing:.42em;text-transform:uppercase;
+  color:var(--gold);margin-bottom:28px;
+}
+.lede{max-width:660px;margin:0 auto 36px;font-size:clamp(16px,2vw,19px);color:var(--ink2)}
+.lede strong{color:var(--ink);font-weight:600}
+.cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.hero-note{margin-top:22px;font-size:13px;color:var(--ink3)}
+
+/* stat strip */
+.stats{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:var(--radius);
+  overflow:hidden;margin-top:64px;
+}
+.stat{background:var(--bg2);padding:22px 18px;text-align:center}
+.stat b{display:block;font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;color:var(--gold)}
+.stat span{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+
+/* ---------- SECTIONS ---------- */
+section{padding:96px 0;position:relative}
+.sec-head{max-width:720px;margin-bottom:48px}
+.sec-head.center{margin-left:auto;margin-right:auto;text-align:center}
+.kicker{font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:14px}
+h2{font-family:'Orbitron',sans-serif;font-weight:800;font-size:clamp(28px,4.4vw,42px);line-height:1.15;letter-spacing:.01em;margin-bottom:18px}
+h3{font-family:'Orbitron',sans-serif;font-weight:600;font-size:19px;letter-spacing:.02em;margin-bottom:10px}
+.sec-head p{color:var(--ink2);font-size:17px}
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--line2),transparent)}
+
+/* pillars */
+.pillars{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.card{
+  background:linear-gradient(180deg,var(--panel) 0%,var(--bg2) 100%);
+  border:1px solid var(--line);border-radius:var(--radius);padding:26px;
+  transition:border-color .2s,transform .2s;
+}
+.card:hover{border-color:var(--line2);transform:translateY(-3px)}
+.card .ico{
+  width:42px;height:42px;border-radius:11px;display:grid;place-items:center;
+  font-size:20px;margin-bottom:18px;border:1px solid var(--line2);background:rgba(255,255,255,.02);
+}
+.card p{color:var(--ink2);font-size:14.5px}
+.card.gold .ico{border-color:var(--gold-dim);color:var(--gold);background:rgba(245,176,39,.07)}
+.card.cyan .ico{border-color:#1F4B7A;color:var(--cyan);background:rgba(77,163,255,.07)}
+.card.red  .ico{border-color:#6E241F;color:var(--red);background:rgba(226,72,61,.07)}
+.card.green .ico{border-color:#1E5C3E;color:var(--green);background:rgba(63,191,127,.07)}
+
+/* ledger split */
+.split{display:grid;grid-template-columns:1fr 1.05fr;gap:56px;align-items:center}
+.ledger{
+  background:var(--panel);border:1px solid var(--line2);border-radius:var(--radius);
+  overflow:hidden;box-shadow:0 32px 80px -32px rgba(0,0,0,.9);
+}
+.ledger-top{
+  display:flex;align-items:center;gap:8px;padding:12px 16px;
+  background:var(--panel2);border-bottom:1px solid var(--line);
+}
+.tl{width:10px;height:10px;border-radius:50%;background:#3A4254}
+.ledger-title{margin-left:8px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:13px}
+td{padding:9px 16px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td:last-child{text-align:right;color:var(--ink)}
+.lbl{color:var(--ink2)}
+.indent td:first-child{padding-left:34px;color:var(--ink3);font-size:12px}
+.pos{color:var(--green)}
+.neg{color:var(--red)}
+.total td{background:rgba(245,176,39,.06);font-weight:600;border-top:1px solid var(--gold-dim)}
+.total td:last-child{color:var(--gold)}
+.tick{list-style:none;margin-top:26px}
+.tick li{position:relative;padding-left:26px;margin-bottom:13px;color:var(--ink2)}
+.tick li::before{content:"";position:absolute;left:0;top:9px;width:8px;height:8px;border-radius:2px;background:var(--gold);transform:rotate(45deg)}
+.tick li b{color:var(--ink);font-weight:600}
+
+/* systems grid */
+.systems{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.sys{background:var(--bg2);padding:30px 26px;transition:background .2s}
+.sys:hover{background:var(--panel)}
+.sys .n{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--gold);margin-bottom:14px;letter-spacing:.1em}
+.sys p{color:var(--ink2);font-size:14.5px}
+
+/* veterans band */
+.band{background:linear-gradient(180deg,rgba(245,176,39,.04),transparent);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:12px}
+.col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:28px}
+.col h3{margin-bottom:18px}
+.col.us{border-color:var(--gold-dim);background:linear-gradient(180deg,rgba(245,176,39,.06),var(--panel))}
+.col ul{list-style:none}
+.col li{padding:11px 0 11px 28px;position:relative;border-bottom:1px solid var(--line);font-size:14.5px;color:var(--ink2)}
+.col li:last-child{border-bottom:0}
+.col li::before{position:absolute;left:0;top:11px;font-family:'JetBrains Mono',monospace;font-size:14px}
+.col.them li::before{content:"—";color:var(--ink3)}
+.col.us li::before{content:"+";color:var(--gold);font-weight:700}
+
+/* faq */
+details{border:1px solid var(--line);border-radius:12px;background:var(--bg2);margin-bottom:12px;overflow:hidden}
+details[open]{border-color:var(--line2)}
+summary{
+  cursor:pointer;list-style:none;padding:20px 24px;font-weight:600;font-size:16px;
+  display:flex;justify-content:space-between;align-items:center;gap:16px;
+}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font-family:'JetBrains Mono',monospace;color:var(--gold);font-size:20px;flex:none}
+details[open] summary::after{content:"−"}
+details .body{padding:0 24px 22px;color:var(--ink2);font-size:15px}
+
+/* final cta */
+.finale{text-align:center;padding:110px 0}
+.finale .wrap{position:relative;z-index:2}
+.finale::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(55% 70% at 50% 50%,rgba(245,176,39,.10),transparent 72%);
+}
+
+/* footer */
+footer{border-top:1px solid var(--line);padding:54px 0 40px;background:var(--bg2)}
+.foot{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:36px}
+.foot h4{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:16px;font-weight:700}
+.foot a{display:block;color:var(--ink2);font-size:14px;padding:5px 0;transition:color .15s}
+.foot a:hover{color:var(--gold)}
+.foot p{color:var(--ink3);font-size:14px;max-width:300px}
+.legal{margin-top:44px;padding-top:24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--ink3);font-size:13px}
+
+@media (max-width:980px){
+  .pillars{grid-template-columns:repeat(2,1fr)}
+  .systems{grid-template-columns:repeat(2,1fr)}
+  .split{grid-template-columns:1fr;gap:40px}
+  .foot{grid-template-columns:1fr 1fr}
+  .navlinks{display:none}
+  .burger{display:block}
+  .nav > .btn{display:none}
+}
+@media (max-width:640px){
+  section{padding:68px 0}
+  .hero{padding:64px 0 60px}
+  .pillars{grid-template-columns:1fr}
+  .systems{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  .compare{grid-template-columns:1fr}
+  .foot{grid-template-columns:1fr}
+  .cta-row .btn{width:100%}
+  .wrap{padding:0 18px}
+  .brand .sub{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
 </head>
 <body>
 
-<main class="auth">
-  <div class="card">
-
-    <p class="eyebrow">Nation Simulation</p>
-    <h1 style="color:var(--brass); letter-spacing:.1em;">Grand Strategy</h1>
-    <p class="lede">
-      Build cities, refine resources, sign treaties, and fight wars that take days
-      rather than seconds. Turns resolve every two hours whether you are watching
-      or not.
-    </p>
-
-    <div id="msg" class="msg hidden"></div>
-
-    <!-- Sign in -->
-    <section id="loginPanel" class="panel">
-      <header><h2>Sign in</h2></header>
-      <div class="body">
-        <div class="field">
-          <label for="loginEmail">Email</label>
-          <input id="loginEmail" type="email" autocomplete="email">
-        </div>
-        <div class="field">
-          <label for="loginPassword">Password</label>
-          <input id="loginPassword" type="password" autocomplete="current-password">
-        </div>
-        <button id="loginBtn" class="primary" style="width:100%">Sign in</button>
-      </div>
-    </section>
-
-    <!-- Found a nation -->
-    <section id="registerPanel" class="panel hidden">
-      <header><h2>Found a nation</h2></header>
-      <div class="body">
-        <div class="field">
-          <label for="regNation">Nation name</label>
-          <input id="regNation" maxlength="40" placeholder="Meridia">
-        </div>
-        <div class="field">
-          <label for="regLeader">Leader name</label>
-          <input id="regLeader" maxlength="40" placeholder="Governor Sala">
-        </div>
-        <div class="field">
-          <label for="regContinent">Continent</label>
-          <select id="regContinent"></select>
-          <p class="muted" style="font-size:.72rem; margin-top:.35rem;" id="continentNote"></p>
-        </div>
-        <div class="field">
-          <label for="regEmail">Email</label>
-          <input id="regEmail" type="email" autocomplete="email">
-        </div>
-        <div class="field">
-          <label for="regPassword">Password</label>
-          <input id="regPassword" type="password" autocomplete="new-password" placeholder="At least 8 characters">
-        </div>
-        <button id="registerBtn" class="primary" style="width:100%">Found nation</button>
-        <p class="muted" style="font-size:.74rem; margin-top:.7rem; line-height:1.5;">
-          New nations are protected from attack for 14 days. Use that time to build
-          — protection ends permanently and cannot be regained.
-        </p>
-      </div>
-    </section>
-
-    <p class="switch">
-      <span id="switchText">No nation yet?</span>
-      <button id="switchBtn">Found one</button>
-    </p>
-
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/">
+      <span class="mark">SOV<span>RA</span></span>
+      <span class="sub">The World Order</span>
+    </a>
+    <nav class="navlinks">
+      <a href="#game">The Game</a>
+      <a href="#ledger">The Ledger</a>
+      <a href="#systems">Systems</a>
+      <a href="#faq">FAQ</a>
+      <a href="/wiki/">Wiki</a>
+    </nav>
+    <a class="btn btn-primary" href="/login.html">Play Free</a>
+    <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="mobilemenu">☰</button>
   </div>
+  <nav class="mobilemenu" id="mobilemenu">
+    <a href="#game">The Game</a>
+    <a href="#ledger">The Ledger</a>
+    <a href="#systems">Systems</a>
+    <a href="#faq">FAQ</a>
+    <a href="/wiki/">Wiki</a>
+    <a href="/login.html">Play Free</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="grid-bg"></div>
+  <div class="wrap">
+    <span class="eyebrow"><span class="dot"></span> Free · Browser-based · No download</span>
+    <h1 class="wordmark">SOVRA</h1>
+    <p class="tagline">The World Order</p>
+    <p class="lede">
+      Take a single nation and make it matter. Build cities, run an economy, trade on an open market,
+      and fight wars that last for days against real opponents.
+      <strong>Every number that decides your fate is shown to you</strong> — not buried in a wiki someone
+      reverse-engineered a decade ago.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary btn-lg" href="/login.html">Found your nation</a>
+      <a class="btn btn-ghost btn-lg" href="#game">See how it works</a>
+    </div>
+    <p class="hero-note">Runs in any browser · Desktop and mobile · No install, no launcher</p>
+
+    <div class="stats">
+      <div class="stat"><b>18</b><span>Policies</span></div>
+      <div class="stat"><b>27</b><span>Projects</span></div>
+      <div class="stat"><b>2h</b><span>Turn cycle</span></div>
+      <div class="stat"><b>∞</b><span>Grudges</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- WHAT IS IT -->
+<section id="game">
+  <div class="wrap">
+    <div class="sec-head center">
+      <p class="kicker">What is SOVRA</p>
+      <h2>A whole international system, run by real people</h2>
+      <p>
+        SOVRA is a persistent multiplayer nation simulation game you play in a browser. You start with one
+        nation and a small treasury. Everything after that — the cities you found, the industries you build,
+        the industries you specialise in, the wars you start and the ones started on you — is decided
+        by you and by everyone else sharing the same world. There are no bots to farm and
+        no campaign to finish. The world state is whatever the players last left it as.
+      </p>
+    </div>
+
+    <div class="pillars">
+      <div class="card gold">
+        <div class="ico">◈</div>
+        <h3>Nation</h3>
+        <p>Found cities, set land and infrastructure, manage population growth against disease, crime and age. Density is a choice with consequences — pack people in and they start dying.</p>
+      </div>
+      <div class="card green">
+        <div class="ico">⌗</div>
+        <h3>Economy</h3>
+        <p>Raw extraction feeds manufacturing feeds construction. Refined steel, aluminium and munitions gate what you can build. Commerce and food run on the same clock as everything else.</p>
+      </div>
+      <div class="card cyan">
+        <div class="ico">⇄</div>
+        <h3>Market</h3>
+        <p>An open player-driven exchange. No NPC seller, no fixed prices. When a war breaks out, munitions spike — and everyone can see it happening in the order book.</p>
+      </div>
+      <div class="card red">
+        <div class="ico">✶</div>
+        <h3>War</h3>
+        <p>Ground, air and naval fronts, action points, resistance, espionage and missiles. Wars run for days, not minutes. Every battle roll is stored, so any fight can be replayed and audited.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LEDGER -->
+<section id="ledger" class="band">
+  <div class="wrap split">
+    <div>
+      <p class="kicker">The difference</p>
+      <h2>The ledger shows its work</h2>
+      <p style="color:var(--ink2);font-size:17px">
+        Most nation games hand you one number — your income — and let you guess where it came from.
+        SOVRA unfolds it. Every line of your treasury, your population, your production and your
+        military upkeep can be expanded down to the individual building that caused it.
+      </p>
+      <ul class="tick">
+        <li><b>Per-building attribution.</b> See exactly which farm, factory or barracks is earning or bleeding.</li>
+        <li><b>Resource runway.</b> Days until you run dry, at the current burn rate, per resource.</li>
+        <li><b>Idle diagnosis.</b> A building producing nothing tells you why — missing input, no workers, or policy penalty.</li>
+        <li><b>No hidden multipliers.</b> Policies and projects state their cost as loudly as their benefit.</li>
+      </ul>
+      <div class="cta-row" style="justify-content:flex-start;margin-top:30px">
+        <a class="btn btn-ghost" href="/wiki/">Read the mechanics wiki</a>
+      </div>
+    </div>
+
+    <div class="ledger" aria-label="Example economy ledger">
+      <div class="ledger-top">
+        <span class="tl"></span><span class="tl"></span><span class="tl"></span>
+        <span class="ledger-title">Economy · Turn 4 812</span>
+      </div>
+      <table>
+        <tbody>
+          <tr><td class="lbl">Gross commerce</td><td class="pos">+412 900</td></tr>
+          <tr class="indent"><td>City 1 · 4 × Supermarket</td><td>+96 400</td></tr>
+          <tr class="indent"><td>City 2 · 3 × Bank</td><td>+181 500</td></tr>
+          <tr class="indent"><td>City 3 · Stadium</td><td>+134 900</td></tr>
+          <tr><td class="lbl">Population tax</td><td class="pos">+88 240</td></tr>
+          <tr><td class="lbl">Building upkeep</td><td class="neg">−121 060</td></tr>
+          <tr><td class="lbl">Military upkeep</td><td class="neg">−203 750</td></tr>
+          <tr class="indent"><td>Soldiers 128 000 @ 1.25</td><td>−160 000</td></tr>
+          <tr class="indent"><td>Tanks 4 200 @ 10.4</td><td>−43 750</td></tr>
+          <tr><td class="lbl">Policy · War Economy</td><td class="neg">−18 400</td></tr>
+          <tr class="total"><td>Net this turn</td><td>+157 930</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- SYSTEMS -->
+<section id="systems">
+  <div class="wrap">
+    <div class="sec-head center">
+      <p class="kicker">Under the hood</p>
+      <h2>Systems that talk to each other</h2>
+      <p>Nothing in SOVRA is decorative. Change one thing and the consequences propagate through every other subsystem on the next turn.</p>
+    </div>
+
+    <div class="systems">
+      <div class="sys">
+        <div class="n">01 / CITIES</div>
+        <h3>Cities &amp; Buildings</h3>
+        <p>Each city has its own land, infrastructure and building slots. Commerce, civil and military buildings cost refined materials on top of money — you cannot buy your way past an industry you never built.</p>
+      </div>
+      <div class="sys">
+        <div class="n">02 / PEOPLE</div>
+        <h3>Population</h3>
+        <p>Growth, disease, crime and age are simulated per city. Overcrowd without hospitals and the death rate answers for you. The formula is printed on the page.</p>
+      </div>
+      <div class="sys">
+        <div class="n">03 / POLICY</div>
+        <h3>Policies</h3>
+        <p>Eighteen policies across economic, social and military slots — one active per slot, five-day lock. Every single one costs you something. There are no free bonuses in SOVRA.</p>
+      </div>
+      <div class="sys">
+        <div class="n">04 / PROJECTS</div>
+        <h3>National Projects</h3>
+        <p>Twenty-seven permanent national investments, from intelligence agencies to arms stockpiles. Expensive, irreversible, and each one narrows what kind of nation you can still become.</p>
+      </div>
+      <div class="sys">
+        <div class="n">05 / WAR</div>
+        <h3>Combat &amp; Espionage</h3>
+        <p>Three-roll battle resolution across ground, air and naval theatres, plus resistance, blockades, spy operations and missiles. Seeded rolls mean every result is reproducible.</p>
+      </div>
+      <div class="sys">
+        <div class="n">06 / MATCHMAKING</div>
+        <h3>Score &amp; War Range</h3>
+        <p>Score is a power rating and a matchmaking weight at once. You can be reached by someone bigger, never by someone overwhelmingly bigger — so every unit you build is also a decision about who is allowed to attack you.</p>
+      </div>
+    </div>
+
+    <p style="margin-top:28px;color:var(--ink3);font-size:14.5px;text-align:center">
+      <strong style="color:var(--ink2)">Being built next:</strong>
+      alliances and shared banks · treaties · espionage interface · missiles and nuclear weapons.
+      The engine already models all four — they do not have a page yet, and we would rather
+      tell you that than pretend otherwise.
+    </p>
+  </div>
+</section>
+
+<!-- VETERANS -->
+<section id="veterans" class="band">
+  <div class="wrap">
+    <div class="sec-head center">
+      <p class="kicker">Coming from Politics &amp; War?</p>
+      <h2>Same depth. Different contract with the player.</h2>
+      <p>SOVRA is built for people who like this genre and have opinions about it. Here is what we changed on purpose.</p>
+    </div>
+    <div class="compare">
+      <div class="col them">
+        <h3>What frustrated us</h3>
+        <ul>
+          <li>Formulas hidden, learned only from community spreadsheets</li>
+          <li>Domestic policies that are pure upside with no trade-off</li>
+          <li>Income appears as one number with no breakdown</li>
+          <li>Interfaces that assume a desktop and a second monitor</li>
+          <li>New players farmed before they understand the systems</li>
+        </ul>
+      </div>
+      <div class="col us">
+        <h3>What SOVRA does</h3>
+        <ul>
+          <li>Every formula shown in-game, in an expandable ledger</li>
+          <li>Every policy has a stated cost — enforced by an automated test</li>
+          <li>Per-building attribution on income, upkeep and production</li>
+          <li>Built mobile-first; full game playable on a phone</li>
+          <li>Score-banded war ranges and clear onboarding before exposure</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head center">
+      <p class="kicker">Questions</p>
+      <h2>Frequently asked</h2>
+    </div>
+    <div style="max-width:820px;margin:0 auto">
+      <details open>
+        <summary>Is SOVRA free to play?</summary>
+        <div class="body">Yes. SOVRA is free and runs entirely in your browser — no download, no launcher, no account purchase required to play the full game.</div>
+      </details>
+      <details>
+        <summary>What kind of game is SOVRA?</summary>
+        <div class="body">A persistent browser-based nation simulation — sometimes called a PBBG. You run one nation in a shared world alongside every other player: building cities, managing an economy, trading on a player market and fighting wars. It is closest in spirit to games like Politics and War, Cyber Nations and NationStates, with a heavier simulation underneath.</div>
+      </details>
+      <details>
+        <summary>How much time does it take?</summary>
+        <div class="body">Turns process on a fixed cycle rather than in real time, so a few focused check-ins a day is enough to play competitively. Wars run over days, which means you are never punished for sleeping.</div>
+      </details>
+      <details>
+        <summary>How does disease work?</summary>
+        <div class="body">Disease rate rises with population density and pollution and falls with hospitals. It is computed per city each turn and the full equation, with your own city's inputs substituted in, is shown on your population page — so you can see exactly how much a hospital is worth before you build it.</div>
+      </details>
+      <details>
+        <summary>Can I play SOVRA on mobile?</summary>
+        <div class="body">Yes. Every page is built for phones — wide data tables collapse into readable cards, and the whole game including markets and war is usable on a small screen.</div>
+      </details>
+      <details>
+        <summary>Are there alliances?</summary>
+        <div class="body">Not yet. Alliances, shared banks and treaties are the next major system being built, and they are the part of this genre that turns a nation simulator into a political one. Right now SOVRA is a shared world you fight and trade in as an individual. We would rather say that plainly than list a feature that is not there.</div>
+      </details>
+      <details>
+        <summary>Is there pay-to-win?</summary>
+        <div class="body">No. Nothing purchasable affects nation strength, combat outcomes or economy. The advantage in SOVRA comes from understanding the systems and from who you are allied with.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="finale">
+  <div class="wrap">
+    <p class="kicker">Ready</p>
+    <h2 style="margin-bottom:20px">Build your sovereignty.<br>Shape the world order.</h2>
+    <p style="color:var(--ink2);max-width:520px;margin:0 auto 34px;font-size:17px">
+      Founding a nation takes about ninety seconds. Learning to keep it takes rather longer.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary btn-lg" href="/login.html">Play SOVRA free</a>
+      <a class="btn btn-ghost btn-lg" href="/wiki/">Browse the wiki first</a>
+    </div>
+  </div>
+</section>
+
 </main>
 
-<!-- api.js MUST load before the page script -->
-<script src="/js/api.js"></script>
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="/" style="margin-bottom:16px">
+          <span class="mark">SOV<span>RA</span></span>
+        </a>
+        <p>A free multiplayer nation simulation game. Cities, economy, market and war — with every calculation on the table.</p>
+      </div>
+      <div>
+        <h4>Game</h4>
+        <a href="/login.html">Play free</a>
+        <a href="#game">What is SOVRA</a>
+        <a href="#systems">Game systems</a>
+        <a href="/rankings.html">World rankings</a>
+      </div>
+      <div>
+        <h4>Learn</h4>
+        <a href="/wiki/">Mechanics wiki</a>
+        <a href="/wiki/economy.html">Economy guide</a>
+        <a href="/wiki/war.html">War guide</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <a href="/privacy.html">Privacy policy</a>
+        <a href="/terms.html">Terms of service</a>
+      </div>
+    </div>
+    <div class="legal">
+      <span>© <span id="yr">2026</span> SOVRA — The World Order. All rights reserved.</span>
+      <span class="mono">playsovra.com</span>
+    </div>
+  </div>
+</footer>
+
 <script>
-(() => {
-  'use strict';
-
-  if (API.isLoggedIn()) { location.href = '/dashboard.html'; return; }
-
-  const msg = document.getElementById('msg');
-  const loginPanel = document.getElementById('loginPanel');
-  const registerPanel = document.getElementById('registerPanel');
-  const switchBtn = document.getElementById('switchBtn');
-  const switchText = document.getElementById('switchText');
-  let mode = 'login';
-
-  // Continents come from the server so the list can never drift out of sync
-  // with what the engine actually accepts.
-  API.reference().then(ref => {
-    const sel = document.getElementById('regContinent');
-    sel.innerHTML = ref.continents
-      .map(c => `<option value="${c}">${Fmt.label(c)}</option>`).join('');
-    updateContinentNote(ref);
-    sel.addEventListener('change', () => updateContinentNote(ref));
-  }).catch(() => {
-    showMessage(msg, 'Cannot reach the server. Start it with npm start, then reload.');
+document.getElementById('yr').textContent = new Date().getFullYear();
+(function(){
+  var b = document.getElementById('burger'), m = document.getElementById('mobilemenu');
+  b.addEventListener('click', function(){
+    var open = m.classList.toggle('open');
+    b.setAttribute('aria-expanded', open);
+    b.textContent = open ? '✕' : '☰';
   });
-
-  function updateContinentNote(ref) {
-    const c = document.getElementById('regContinent').value;
-    const note = document.getElementById('continentNote');
-    note.textContent = c === 'antarctica'
-      ? 'Antarctica produces half the food. Choose it only if you plan to import.'
-      : 'Your continent decides which raw resources you can mine. No continent has them all — you will need to trade.';
-  }
-
-  switchBtn.addEventListener('click', () => {
-    mode = mode === 'login' ? 'register' : 'login';
-    clearMessage(msg);
-    loginPanel.classList.toggle('hidden', mode !== 'login');
-    registerPanel.classList.toggle('hidden', mode !== 'register');
-    switchText.textContent = mode === 'login' ? 'No nation yet?' : 'Already playing?';
-    switchBtn.textContent  = mode === 'login' ? 'Found one' : 'Sign in';
-  });
-
-  async function doLogin() {
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value;
-    if (!email || !password) return showMessage(msg, 'Enter your email and password.');
-
-    const btn = document.getElementById('loginBtn');
-    btn.disabled = true; btn.textContent = 'Signing in…';
-    try {
-      const { token } = await API.login(email, password);
-      API.setToken(token);
-      location.href = '/dashboard.html';
-    } catch (err) {
-      showMessage(msg, err.message);
-      btn.disabled = false; btn.textContent = 'Sign in';
-    }
-  }
-
-  async function doRegister() {
-    const payload = {
-      nationName:  document.getElementById('regNation').value.trim(),
-      leaderName:  document.getElementById('regLeader').value.trim(),
-      continent:   document.getElementById('regContinent').value,
-      email:       document.getElementById('regEmail').value.trim(),
-      password:    document.getElementById('regPassword').value,
-    };
-    if (!payload.nationName) return showMessage(msg, 'Your nation needs a name.');
-    if (!payload.email) return showMessage(msg, 'Enter an email address.');
-    if (payload.password.length < 8) return showMessage(msg, 'Password must be at least 8 characters.');
-
-    const btn = document.getElementById('registerBtn');
-    btn.disabled = true; btn.textContent = 'Founding…';
-    try {
-      const { token } = await API.register(payload);
-      API.setToken(token);
-      location.href = '/dashboard.html';
-    } catch (err) {
-      showMessage(msg, err.message);
-      btn.disabled = false; btn.textContent = 'Found nation';
-    }
-  }
-
-  document.getElementById('loginBtn').addEventListener('click', doLogin);
-  document.getElementById('registerBtn').addEventListener('click', doRegister);
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Enter') mode === 'login' ? doLogin() : doRegister();
+  m.addEventListener('click', function(e){
+    if (e.target.tagName === 'A'){ m.classList.remove('open'); b.textContent='☰'; b.setAttribute('aria-expanded','false'); }
   });
 })();
 </script>
+
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"VideoGame",
+  "name":"SOVRA — The World Order",
+  "alternateName":"SOVRA",
+  "url":"https://playsovra.com/",
+  "description":"SOVRA is a free multiplayer nation simulation game played in the browser. Build cities, run an economy, trade on an open player market and fight wars, with every underlying formula shown to the player.",
+  "genre":["Strategy","Nation Simulation","Massively Multiplayer Online","Persistent Browser-Based Game"],
+  "gamePlatform":["Web Browser","PC","Mobile"],
+  "playMode":"MultiPlayer",
+  "applicationCategory":"Game",
+  "operatingSystem":"Any (web browser)",
+  "offers":{"@type":"Offer","price":"0","priceCurrency":"USD","availability":"https://schema.org/InStock"},
+  "inLanguage":"en"
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"FAQPage",
+  "mainEntity":[
+    {"@type":"Question","name":"Is SOVRA free to play?","acceptedAnswer":{"@type":"Answer","text":"Yes. SOVRA is free and runs entirely in your browser — no download, no launcher, no account purchase required to play the full game."}},
+    {"@type":"Question","name":"What kind of game is SOVRA?","acceptedAnswer":{"@type":"Answer","text":"A persistent browser-based nation simulation (PBBG). You run one nation in a shared world alongside every other player: building cities, managing an economy, trading on a player market and fighting wars."}},
+    {"@type":"Question","name":"How much time does SOVRA take?","acceptedAnswer":{"@type":"Answer","text":"Turns process on a fixed cycle rather than in real time, so a few focused check-ins a day is enough to play competitively. Wars run over days."}},
+    {"@type":"Question","name":"How does disease work in SOVRA?","acceptedAnswer":{"@type":"Answer","text":"Disease rate rises with population density and pollution and falls with hospitals. It is computed per city each turn, and the full equation with your city's own inputs is shown on your population page."}},
+    {"@type":"Question","name":"Can I play SOVRA on mobile?","acceptedAnswer":{"@type":"Answer","text":"Yes. Every page is built for phones — wide data tables collapse into readable cards, and the whole game including markets and war is usable on a small screen."}},
+    {"@type":"Question","name":"Is there pay-to-win in SOVRA?","acceptedAnswer":{"@type":"Answer","text":"No. Nothing purchasable affects nation strength, combat outcomes or economy."}}
+  ]
+}
+</script>
+
 </body>
 </html>

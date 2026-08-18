@@ -80,7 +80,7 @@
         <div class="sub">need ${Fmt.dec(gasNeeded,1)}/battle</div>
       </div>`;
 
-    el('mapLine').textContent = `${state.nation.map}/12 action points · score ${Fmt.dec(state.score,1)}`;
+    el('mapLine').textContent = `${state.nation.map}/${ref.mapMax} action points · score ${Fmt.dec(state.score,1)}`;
   }
 
   // ------------------------------------------------------------------
@@ -127,11 +127,71 @@
   // Wars
   // ------------------------------------------------------------------
 
-  const ATTACKS = [
-    { key: 'ground_battle', label: 'Ground', map: 3 },
-    { key: 'airstrike', label: 'Airstrike', map: 4 },
-    { key: 'naval_battle', label: 'Naval', map: 4 },
-  ];
+  // Labels are ours; the MAP costs come from the server. They used to be typed
+  // here as well, which meant tuning MAP_COST in the engine silently left the
+  // buttons advertising the old price.
+  const ATTACK_LABELS = {
+    ground_battle: 'Ground',
+    airstrike: 'Airstrike',
+    naval_battle: 'Naval',
+  };
+  const attacks = () => Object.keys(ATTACK_LABELS).map(key => ({
+    key, label: ATTACK_LABELS[key], map: ref.mapCosts[key],
+  }));
+
+  /**
+   * Control states are the single most confusing thing in a war for a new
+   * player: your tanks are worth half and nothing on screen says so. The state
+   * was resolved, stored and then never shown. Now each side's state is spelled
+   * out in the engine's own words — see CONTROL_STATES in constants.js.
+   */
+  function controlPanel(w) {
+    const rows = [];
+
+    if (w.theirControlState) {
+      const c = ref.controlStates[w.theirControlState];
+      rows.push(`<div class="ctrl bad">
+        <span class="k">${escapeHtml(c?.name || Fmt.label(w.theirControlState))} — they hold it</span>
+        <span class="v">${escapeHtml(c?.suffering || '')}</span>
+      </div>`);
+    }
+    if (w.myControlState) {
+      const c = ref.controlStates[w.myControlState];
+      rows.push(`<div class="ctrl good">
+        <span class="k">${escapeHtml(c?.name || Fmt.label(w.myControlState))} — you hold it</span>
+        <span class="v">${escapeHtml(c?.holding || '')}</span>
+      </div>`);
+    }
+
+    if (rows.length === 0) {
+      rows.push(`<div class="ctrl">
+        <span class="k">No control state</span>
+        <span class="v">An Immense Triumph grants one. Any victory at all breaks theirs.</span>
+      </div>`);
+    }
+    return `<div class="controls">${rows.join('')}</div>`;
+  }
+
+  function fortifyRow(w) {
+    const cost = ref.mapCosts.fortify;
+    const pct = Math.round(ref.fortifyCasualtyIncrease * 100);
+
+    if (w.iAmFortified) {
+      return `<div class="ctrl good">
+        <span class="k">Fortified</span>
+        <span class="v">Attacking you costs them ${pct}% more casualties. Ends the moment you attack.</span>
+      </div>`;
+    }
+    const short = state.nation.map < cost;
+    return `<div class="ctrl">
+      <span class="k">Not fortified</span>
+      <span class="v">
+        Dig in for ${cost} action points — attackers take ${pct}% more casualties until you attack.
+        <button data-fortify="${w.id}"${short ? ' disabled' : ''}>${short
+          ? `Need ${cost} points` : `Fortify · ${cost} MAP`}</button>
+      </span>
+    </div>`;
+  }
 
   function renderWars() {
     el('warCount').textContent = `${wars.length} active`;
@@ -142,36 +202,43 @@
     }
 
     el('wars').innerHTML = wars.map(w => {
-      const iAmAttacker = Number(w.attacker_id) === state.nation.id;
-      const opponent = iAmAttacker ? w.defender_name : w.attacker_name;
-      const theirResistance = Number(iAmAttacker ? w.defender_resistance : w.attacker_resistance);
-      const myResistance = Number(iAmAttacker ? w.attacker_resistance : w.defender_resistance);
-
+      const type = ref.warTypes[w.war_type] || {};
       return `
       <div class="war">
         <div class="war-head">
           <div>
-            <h3>${escapeHtml(opponent)}</h3>
-            <span class="eyebrow">${iAmAttacker ? 'you declared' : 'declared on you'} · ${w.war_type}</span>
+            <h3>${escapeHtml(w.opponentName)}</h3>
+            <span class="eyebrow">${w.youDeclared ? 'you declared' : 'declared on you'}${
+              w.theyAreFortified ? ' · they are fortified' : ''}</span>
           </div>
-          <span class="tag">${w.war_type}</span>
+          <span class="tag" title="${escapeHtml(type.summary || '')}">${w.war_type}</span>
         </div>
+
+        <p class="muted" style="font-size:.72rem; margin:-.2rem 0 .6rem;">
+          ${escapeHtml(type.summary || '')}
+          ${type.infraDamage !== undefined
+            ? `<span class="num">(infrastructure damage &times;${Fmt.dec(type.infraDamage, 2)}, loot &times;${Fmt.dec(type.loot, 2)})</span>`
+            : ''}
+        </p>
 
         <div class="resist">
           <div class="r">
             <span class="k">their resistance</span>
-            <div class="track"><div class="fill them" style="width:${theirResistance}%"></div></div>
-            <span class="v num">${theirResistance}</span>
+            <div class="track"><div class="fill them" style="width:${w.theirResistance}%"></div></div>
+            <span class="v num">${Fmt.dec(w.theirResistance, 0)}</span>
           </div>
           <div class="r">
             <span class="k">yours</span>
-            <div class="track"><div class="fill mine" style="width:${myResistance}%"></div></div>
-            <span class="v num">${myResistance}</span>
+            <div class="track"><div class="fill mine" style="width:${w.myResistance}%"></div></div>
+            <span class="v num">${Fmt.dec(w.myResistance, 0)}</span>
           </div>
         </div>
 
+        ${controlPanel(w)}
+        ${fortifyRow(w)}
+
         <div class="attack-buttons">
-          ${ATTACKS.map(a => `
+          ${attacks().map(a => `
             <button data-odds="${w.id}" data-type="${a.key}"
               ${state.nation.map < a.map ? 'disabled' : ''}>${a.label} · ${a.map} MAP</button>`).join('')}
         </div>
@@ -182,7 +249,23 @@
 
     el('wars').querySelectorAll('[data-odds]').forEach(b =>
       b.addEventListener('click', () => showOdds(Number(b.dataset.odds), b.dataset.type)));
+    el('wars').querySelectorAll('[data-fortify]').forEach(b =>
+      b.addEventListener('click', () => doFortify(Number(b.dataset.fortify))));
   }
+
+  async function doFortify(warId) {
+    try {
+      clearMessage(msg);
+      const r = await API.fortify(warId);
+      showMessage(msg,
+        `Fortified. Attacking you now costs ${Math.round(r.attackerCasualtyIncrease * 100)}% ` +
+        `more casualties. ${r.mapRemaining} action points left.`, 'ok');
+      await load();
+    } catch (err) {
+      showMessage(msg, err.message);
+    }
+  }
+
 
   /** The signature: real odds, before spending anything. */
   async function showOdds(warId, attackType) {

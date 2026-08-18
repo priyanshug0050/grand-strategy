@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Economy, Income and Production — SOVRA Wiki</title>
+<meta name="description" content="How money and resources work in SOVRA: the commerce-to-income formula, power requirements, raw extraction and refining chains, stacking bonuses, upkeep and the food penalty. Generated from the game engine.">
+<link rel="canonical" href="https://playsovra.com/wiki/economy.html">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#08090C">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="SOVRA">
+<meta property="og:title" content="Economy, Income and Production — SOVRA Wiki">
+<meta property="og:description" content="How money and resources work in SOVRA: the commerce-to-income formula, power requirements, raw extraction and refining chains, stacking bonuses, upkeep and the food penalty. Generated from the game engine.">
+<meta property="og:url" content="https://playsovra.com/wiki/economy.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08090C; --bg2:#0C0E13; --panel:#12151C; --panel2:#171B24;
+  --line:#232935; --line2:#2E3646;
+  --ink:#EEF1F6; --ink2:#A9B2C3; --ink3:#6E7994;
+  --gold:#F5B027; --gold-dim:#8A6413; --cyan:#4DA3FF; --red:#E2483D; --green:#3FBF7F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+
+header{position:sticky;top:0;z-index:50;background:rgba(8,9,12,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .mark{font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;letter-spacing:.14em;color:var(--ink)}
+.brand .mark span{color:var(--gold)}
+.brand .sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+.navlinks{display:flex;align-items:center;gap:24px}
+.navlinks a{font-size:14px;font-weight:500;color:var(--ink2);text-decoration:none}
+.navlinks a:hover,.navlinks a.on{color:var(--gold);text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;padding:9px 18px;border-radius:10px;background:var(--gold);color:#1A1204;text-decoration:none}
+.btn:hover{text-decoration:none}
+
+.doc-hero{padding:52px 0 32px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(245,176,39,.05),transparent)}
+.crumb{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px}
+.crumb a{color:var(--gold)}
+h1{font-family:'Orbitron',sans-serif;font-weight:800;font-size:clamp(28px,5vw,42px);line-height:1.15;margin-bottom:14px}
+.standfirst{color:var(--ink2);font-size:17px;max-width:720px}
+
+.layout{display:grid;grid-template-columns:240px 1fr;gap:52px;padding:44px 0 90px;align-items:start}
+nav.toc{position:sticky;top:90px;border-left:1px solid var(--line);padding-left:18px}
+nav.toc h4{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;font-weight:700}
+nav.toc a{display:block;font-size:13.5px;color:var(--ink2);padding:5px 0;text-decoration:none;line-height:1.45}
+nav.toc a:hover{color:var(--gold);text-decoration:none}
+
+article{max-width:800px;min-width:0}
+article section{margin-bottom:52px;scroll-margin-top:92px}
+article h2{font-family:'Orbitron',sans-serif;font-weight:600;font-size:21px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+article h3{font-size:16px;font-weight:700;margin:26px 0 8px;color:var(--ink)}
+article p{color:var(--ink2);margin-bottom:14px}
+article ul,article ol{color:var(--ink2);margin:0 0 14px 20px}
+article li{margin-bottom:8px}
+article strong{color:var(--ink);font-weight:600}
+article em{color:var(--ink);font-style:italic}
+
+.formula{background:#0A0C11;border:1px solid var(--line2);border-left:3px solid var(--cyan);border-radius:10px;padding:15px 18px;margin:16px 0;overflow-x:auto}
+.formula code{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13.5px;color:var(--ink);white-space:pre;display:block}
+.formula .fnote{display:block;margin-top:9px;font-size:13px;color:var(--ink3)}
+
+.worked{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:16px 18px;margin:16px 0}
+.worked .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:10px}
+table.calc{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px}
+table.calc td{padding:5px 0;border:0;color:var(--ink2);white-space:normal}
+table.calc td:last-child{text-align:right;color:var(--ink);font-weight:600;padding-left:14px}
+table.calc tr:last-child td{border-top:1px solid var(--line);padding-top:9px;color:var(--gold)}
+
+.note{background:var(--panel);border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:10px;padding:16px 18px;margin:18px 0}
+.note p{margin-bottom:0;font-size:14.5px}
+.note .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:8px}
+.note.warn{border-left-color:var(--red)} .note.warn .t{color:var(--red)}
+.note.trap{border-left-color:var(--cyan)} .note.trap .t{color:var(--cyan)}
+
+table{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th{background:var(--panel2);text-align:left;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);padding:11px 12px;font-weight:700;white-space:nowrap}
+td{padding:10px 12px;border-top:1px solid var(--line);color:var(--ink2);vertical-align:top}
+td:first-child{color:var(--ink);font-weight:500}
+td.n{font-family:'JetBrains Mono',ui-monospace,monospace;text-align:right;white-space:nowrap}
+.good{color:var(--green)} .bad{color:var(--red)} .dim{color:var(--ink3)}
+
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:26px 0}
+.wcard{display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;text-decoration:none;transition:border-color .2s,transform .2s}
+.wcard:hover{border-color:var(--gold-dim);transform:translateY(-2px);text-decoration:none}
+.wcard h3{font-family:'Orbitron',sans-serif;font-size:16px;color:var(--ink);margin:0 0 8px}
+.wcard p{color:var(--ink2);font-size:14px;margin:0}
+
+footer{border-top:1px solid var(--line);padding:40px 0;background:var(--bg2)}
+.legal{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--ink3);font-size:13px}
+.legal a{color:var(--ink2)}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;gap:0;padding-top:28px}
+  nav.toc{position:static;border-left:0;border-bottom:1px solid var(--line);padding:0 0 22px;margin-bottom:30px}
+  nav.toc a{display:inline-block;margin-right:16px}
+  .navlinks{display:none}
+  .cards{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .brand .sub{display:none}
+  table{display:block;overflow-x:auto;white-space:nowrap}
+  table.calc{white-space:normal}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/"><span class="mark">SOV<span>RA</span></span><span class="sub">The World Order</span></a>
+    <nav class="navlinks">
+      <a href="/wiki/">Wiki</a>
+      <a href="/wiki/cities.html">Cities</a>
+      <a href="/wiki/economy.html" class="on">Economy</a>
+      <a href="/wiki/population.html">Population</a>
+      <a href="/wiki/war.html">War</a>
+      <a href="/wiki/policies.html">Policies</a>
+      <a href="/wiki/projects.html">Projects</a>
+    </nav>
+    <a class="btn" href="/login.html">Play Free</a>
+  </div>
+</header>
+
+<div class="doc-hero">
+  <div class="wrap">
+    <p class="crumb"><a href="/">SOVRA</a> · <a href="/wiki/">Wiki</a> · Economy, Income and Production</p>
+    <h1>Economy, Income and Production</h1>
+    <p class="standfirst">Money comes from people, and people come from cities. Everything else in the economy is a chain: raw resources feed refining, refining feeds construction, and power sits underneath all of it as a hard on/off switch.</p>
+  </div>
+</div>
+
+<div class="wrap layout">
+  <nav class="toc">
+    <h4>On this page</h4>
+    <a href="#income">Income</a>
+    <a href="#power">Power</a>
+    <a href="#production">Production chains</a>
+    <a href="#stacking">Stacking bonuses</a>
+    <a href="#costs">Upkeep &amp;amp; food</a>
+    <a href="#ledger">The ledger</a>
+  </nav>
+  <article>
+<section id="income">
+<h2>Income</h2>
+
+<p>Income is paid on the daily rollover, not every turn. It is per-capita and scales with your commerce rate.</p>
+<div class="formula"><code>incomePerCapitaPerDay = ((commerce / 50) * 0.725) + 0.725
+income = incomePerCapitaPerDay * population</code></div>
+<table>
+<thead><tr><th>Commerce</th><th>Per capita / day</th><th>Income at 100k people</th></tr></thead>
+<tbody>
+<tr><td data-label="Commerce">0</td><td data-label="Per capita / day">$0.725</td><td data-label="Income at 100k people">$72,500</td></tr>
+<tr><td data-label="Commerce">25</td><td data-label="Per capita / day">$1.088</td><td data-label="Income at 100k people">$108,750</td></tr>
+<tr><td data-label="Commerce">50</td><td data-label="Per capita / day">$1.450</td><td data-label="Income at 100k people">$145,000</td></tr>
+<tr><td data-label="Commerce">75</td><td data-label="Per capita / day">$1.813</td><td data-label="Income at 100k people">$181,250</td></tr>
+<tr><td data-label="Commerce">100</td><td data-label="Per capita / day">$2.175</td><td data-label="Income at 100k people">$217,500</td></tr>
+</tbody></table>
+<p>Note the shape: at commerce 50 you earn exactly <strong>double</strong> the base rate. Commerce caps at <strong>100%</strong>, or 115% with the International Trade Center project.</p>
+<div class="note trap"><div class="t">The 1000&times; trap</div><p>Politics &amp; War documents a "Minimum Wage" of 725. That figure is for display only — the real per-capita constant in the income formula is <strong>0.725</strong>. The thousandfold difference comes from the tax rate cancelling out. Anyone reimplementing these formulas from the wiki hits this, and the resulting nation earns a thousand times too much.</p></div>
+
+</section>
+
+<section id="power">
+<h2>Power</h2>
+
+<p>Power is not a modifier. It is a threshold, and it is the most common reason a new player's city earns nothing.</p>
+<div class="formula"><code>powered = totalInfraCapacity &gt;= cityInfrastructure
+fuelBurnedPerTurn = 0.1 per 100 infrastructure covered</code></div>
+<table>
+<thead><tr><th>Plant</th><th>Fuel</th><th>Infra covered</th><th>Cost</th><th>Upkeep</th><th>Pollution</th></tr></thead>
+<tbody>
+<tr><td data-label="Plant">Coal Power</td><td data-label="Fuel">Coal</td><td data-label="Infra covered">500</td><td data-label="Cost">$5,000</td><td data-label="Upkeep">$1,200/day</td><td data-label="Pollution">8</td></tr>
+<tr><td data-label="Plant">Oil Power</td><td data-label="Fuel">Oil</td><td data-label="Infra covered">500</td><td data-label="Cost">$7,000</td><td data-label="Upkeep">$1,800/day</td><td data-label="Pollution">6</td></tr>
+<tr><td data-label="Plant">Nuclear Power</td><td data-label="Fuel">Uranium</td><td data-label="Infra covered">2,000</td><td data-label="Cost">$500,000</td><td data-label="Upkeep">$10,500/day</td><td data-label="Pollution">0</td></tr>
+<tr><td data-label="Plant">Wind Power</td><td data-label="Fuel"><span class="good">none</span></td><td data-label="Infra covered">250</td><td data-label="Cost">$30,000</td><td data-label="Upkeep">$500/day</td><td data-label="Pollution">0</td></tr>
+</tbody></table>
+<div class="note warn"><div class="t">501 infrastructure, one coal plant, nothing works</div><p>A coal plant covers exactly 500 infrastructure. At 500 you are fine. At 501 the city is unpowered and <strong>every</strong> manufacturing, civil and commerce building in it produces nothing — while still charging full upkeep. This is the single most expensive mistake available to a new player.</p></div>
+<p>A plant with no fuel does not partially work. It produces no power and burns no fuel, and everything downstream of it goes idle. Mixed plant types are worst: if one type runs dry the whole city blacks out. Wind power needs no fuel at all, which is why it is worth its price in a nation that cannot reliably supply coal.</p>
+<p>Your ledger names which of the two problems you have — not enough capacity, or no fuel for the capacity you built.</p>
+
+</section>
+
+<section id="production">
+<h2>Raw extraction and refining</h2>
+
+<p>Raw extraction works without power. Refining does not.</p>
+<table>
+<thead><tr><th>Resource</th><th>Building</th><th>Inputs / day</th><th>Output / day</th><th>Ratio</th></tr></thead>
+<tbody>
+<tr><td data-label="Resource">Steel</td><td data-label="Building">Steel Mill</td><td data-label="Inputs / day">3 iron + 3 coal</td><td data-label="Output / day">9</td><td data-label="Ratio">1.50&times;</td></tr>
+<tr><td data-label="Resource">Aluminum</td><td data-label="Building">Aluminum Refinery</td><td data-label="Inputs / day">3 bauxite</td><td data-label="Output / day">6</td><td data-label="Ratio">2.00&times;</td></tr>
+<tr><td data-label="Resource">Gasoline</td><td data-label="Building">Oil Refinery</td><td data-label="Inputs / day">3 oil</td><td data-label="Output / day">6</td><td data-label="Ratio">2.00&times;</td></tr>
+<tr><td data-label="Resource">Munitions</td><td data-label="Building">Munitions Factory</td><td data-label="Inputs / day">3 lead</td><td data-label="Output / day">6</td><td data-label="Ratio">2.00&times;</td></tr>
+</tbody></table>
+<p>Manufacturing is far more profitable than extraction, and that gap is what creates the economy's tier structure: raw exporters at the bottom, refiners in the middle, consumers at the top. A nation that only mines is choosing to be someone else's supplier.</p>
+<h3>Farms are different</h3>
+<p>Farm output scales with <strong>land</strong>, not a flat rate.</p>
+<div class="formula"><code>foodPerTurn = land / 250
+            = land / 185   (with Mass Irrigation)</code></div>
+<p>Antarctica produces <strong>50% less food</strong> than everywhere else. Choose it only if you intend to import.</p>
+<div class="note "><div class="t">Nothing is produced from nothing</div><p>A refinery with no inputs produces zero and consumes zero — it never drives a stockpile negative. Mines can feed refineries in the same turn, so a self-sufficient chain works, but only if the mines actually produce enough that turn.</p></div>
+
+</section>
+
+<section id="stacking">
+<h2>Stacking bonuses</h2>
+
+<p>Building several of the same improvement in one city pays a specialisation bonus.</p>
+<table>
+<thead><tr><th>Count</th><th>Manufacturing</th><th>Raw extraction</th></tr></thead>
+<tbody>
+<tr><td data-label="Count">1</td><td data-label="Manufacturing">+0%</td><td data-label="Raw extraction">+0%</td></tr>
+<tr><td data-label="Count">2</td><td data-label="Manufacturing">+12.5%</td><td data-label="Raw extraction">+5.6%</td></tr>
+<tr><td data-label="Count">3</td><td data-label="Manufacturing">+25%</td><td data-label="Raw extraction">+11.1%</td></tr>
+<tr><td data-label="Count">4</td><td data-label="Manufacturing">+37.5%</td><td data-label="Raw extraction">+16.7%</td></tr>
+<tr><td data-label="Count">5</td><td data-label="Manufacturing">+50%</td><td data-label="Raw extraction">+22.2%</td></tr>
+</tbody></table>
+<p>Manufacturing gains <strong>12.5%</strong> per building past the first, capping at <strong>50%</strong>. Raw extraction reaches <strong>50%</strong> at its build limit.</p>
+<p>This is how SOVRA gets distinct nation archetypes without any explicit class system. Spreading one of everything across a city is always worse than committing to something.</p>
+
+</section>
+
+<section id="costs">
+<h2>What drains the treasury</h2>
+
+<h3>Military upkeep</h3>
+<p>Paid daily, and it rises when you are at war.</p>
+<table>
+<thead><tr><th>Unit</th><th>Peace</th><th>War</th><th>Increase</th></tr></thead>
+<tbody>
+<tr><td data-label="Unit">Soldiers</td><td data-label="Peace">$1/day</td><td data-label="War">$2/day</td><td data-label="Increase">+50.4%</td></tr>
+<tr><td data-label="Unit">Tanks</td><td data-label="Peace">$50/day</td><td data-label="War">$75/day</td><td data-label="Increase">+50%</td></tr>
+<tr><td data-label="Unit">Aircraft</td><td data-label="Peace">$500/day</td><td data-label="War">$750/day</td><td data-label="Increase">+50%</td></tr>
+<tr><td data-label="Unit">Ships</td><td data-label="Peace">$3,750/day</td><td data-label="War">$5,625/day</td><td data-label="Increase">+50%</td></tr>
+</tbody></table>
+<div class="note warn"><div class="t">Upkeep is a real constraint</div><p>If you cannot pay, units desert. The engine does not let you run a negative balance and quietly carry on — an army you cannot afford is an army you do not keep. Money floors at zero and the desertion is proportional.</p></div>
+<h3>Food</h3>
+<div class="formula"><code>civilians:  1,000 people eat 1 food per turn
+soldiers:   1 / 750 per soldier at peace, 1 / 500 at war</code></div>
+<p>Running out of food costs you <strong>33% of gross income</strong>. That single penalty is what makes food strategic rather than an afterthought, and it is why a war fought without a food supply collapses on its own.</p>
+<h3>Improvement upkeep</h3>
+<p>Every building charges upkeep every day whether it produces anything or not. An unpowered city is not merely idle — it is actively losing money.</p>
+
+</section>
+
+<section id="ledger">
+<h2>The derivation ledger</h2>
+
+<p>Everything above is visible in game, expanded. The economy page does not show you one income figure — it shows you which building earned what, which resource runs out in how many turns at your current burn rate, and, for anything producing nothing, <em>why</em>.</p>
+<ul>
+  <li><strong>Per-building attribution</strong> — every line traces to the improvement that caused it</li>
+  <li><strong>Resource runway</strong> — turns remaining per resource, not just a rate</li>
+  <li><strong>Idle diagnosis</strong> — missing input, no power, or policy penalty, named explicitly</li>
+  <li><strong>Material costs</strong> — what a building will consume, before you commit</li>
+</ul>
+<p>This is the main thing SOVRA does differently. Politics &amp; War hides the arithmetic and lets the community reverse-engineer it into spreadsheets that are half wrong. We would rather just show you.</p>
+
+</section>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap legal">
+    <span>© <span id="yr">2026</span> SOVRA — The World Order · <a href="/wiki/">Wiki</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></span>
+    <span class="mono">Generated from the game engine · playsovra.com</span>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>

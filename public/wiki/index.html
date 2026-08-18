@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOVRA Wiki — Game Mechanics, Formulas and Guides</title>
+<meta name="description" content="The official SOVRA wiki. Every formula the game uses, generated directly from the game engine: city costs, income, disease, combat, policies and projects. Nothing reverse-engineered, nothing out of date.">
+<link rel="canonical" href="https://playsovra.com/wiki/">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#08090C">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="SOVRA">
+<meta property="og:title" content="SOVRA Wiki — Game Mechanics, Formulas and Guides">
+<meta property="og:description" content="The official SOVRA wiki. Every formula the game uses, generated directly from the game engine: city costs, income, disease, combat, policies and projects. Nothing reverse-engineered, nothing out of date.">
+<meta property="og:url" content="https://playsovra.com/wiki/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08090C; --bg2:#0C0E13; --panel:#12151C; --panel2:#171B24;
+  --line:#232935; --line2:#2E3646;
+  --ink:#EEF1F6; --ink2:#A9B2C3; --ink3:#6E7994;
+  --gold:#F5B027; --gold-dim:#8A6413; --cyan:#4DA3FF; --red:#E2483D; --green:#3FBF7F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+
+header{position:sticky;top:0;z-index:50;background:rgba(8,9,12,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .mark{font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;letter-spacing:.14em;color:var(--ink)}
+.brand .mark span{color:var(--gold)}
+.brand .sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+.navlinks{display:flex;align-items:center;gap:24px}
+.navlinks a{font-size:14px;font-weight:500;color:var(--ink2);text-decoration:none}
+.navlinks a:hover,.navlinks a.on{color:var(--gold);text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;padding:9px 18px;border-radius:10px;background:var(--gold);color:#1A1204;text-decoration:none}
+.btn:hover{text-decoration:none}
+
+.doc-hero{padding:52px 0 32px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(245,176,39,.05),transparent)}
+.crumb{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px}
+.crumb a{color:var(--gold)}
+h1{font-family:'Orbitron',sans-serif;font-weight:800;font-size:clamp(28px,5vw,42px);line-height:1.15;margin-bottom:14px}
+.standfirst{color:var(--ink2);font-size:17px;max-width:720px}
+
+.layout{display:grid;grid-template-columns:240px 1fr;gap:52px;padding:44px 0 90px;align-items:start}
+nav.toc{position:sticky;top:90px;border-left:1px solid var(--line);padding-left:18px}
+nav.toc h4{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;font-weight:700}
+nav.toc a{display:block;font-size:13.5px;color:var(--ink2);padding:5px 0;text-decoration:none;line-height:1.45}
+nav.toc a:hover{color:var(--gold);text-decoration:none}
+
+article{max-width:800px;min-width:0}
+article section{margin-bottom:52px;scroll-margin-top:92px}
+article h2{font-family:'Orbitron',sans-serif;font-weight:600;font-size:21px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+article h3{font-size:16px;font-weight:700;margin:26px 0 8px;color:var(--ink)}
+article p{color:var(--ink2);margin-bottom:14px}
+article ul,article ol{color:var(--ink2);margin:0 0 14px 20px}
+article li{margin-bottom:8px}
+article strong{color:var(--ink);font-weight:600}
+article em{color:var(--ink);font-style:italic}
+
+.formula{background:#0A0C11;border:1px solid var(--line2);border-left:3px solid var(--cyan);border-radius:10px;padding:15px 18px;margin:16px 0;overflow-x:auto}
+.formula code{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13.5px;color:var(--ink);white-space:pre;display:block}
+.formula .fnote{display:block;margin-top:9px;font-size:13px;color:var(--ink3)}
+
+.worked{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:16px 18px;margin:16px 0}
+.worked .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:10px}
+table.calc{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px}
+table.calc td{padding:5px 0;border:0;color:var(--ink2);white-space:normal}
+table.calc td:last-child{text-align:right;color:var(--ink);font-weight:600;padding-left:14px}
+table.calc tr:last-child td{border-top:1px solid var(--line);padding-top:9px;color:var(--gold)}
+
+.note{background:var(--panel);border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:10px;padding:16px 18px;margin:18px 0}
+.note p{margin-bottom:0;font-size:14.5px}
+.note .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:8px}
+.note.warn{border-left-color:var(--red)} .note.warn .t{color:var(--red)}
+.note.trap{border-left-color:var(--cyan)} .note.trap .t{color:var(--cyan)}
+
+table{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th{background:var(--panel2);text-align:left;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);padding:11px 12px;font-weight:700;white-space:nowrap}
+td{padding:10px 12px;border-top:1px solid var(--line);color:var(--ink2);vertical-align:top}
+td:first-child{color:var(--ink);font-weight:500}
+td.n{font-family:'JetBrains Mono',ui-monospace,monospace;text-align:right;white-space:nowrap}
+.good{color:var(--green)} .bad{color:var(--red)} .dim{color:var(--ink3)}
+
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:26px 0}
+.wcard{display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;text-decoration:none;transition:border-color .2s,transform .2s}
+.wcard:hover{border-color:var(--gold-dim);transform:translateY(-2px);text-decoration:none}
+.wcard h3{font-family:'Orbitron',sans-serif;font-size:16px;color:var(--ink);margin:0 0 8px}
+.wcard p{color:var(--ink2);font-size:14px;margin:0}
+
+footer{border-top:1px solid var(--line);padding:40px 0;background:var(--bg2)}
+.legal{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--ink3);font-size:13px}
+.legal a{color:var(--ink2)}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;gap:0;padding-top:28px}
+  nav.toc{position:static;border-left:0;border-bottom:1px solid var(--line);padding:0 0 22px;margin-bottom:30px}
+  nav.toc a{display:inline-block;margin-right:16px}
+  .navlinks{display:none}
+  .cards{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .brand .sub{display:none}
+  table{display:block;overflow-x:auto;white-space:nowrap}
+  table.calc{white-space:normal}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/"><span class="mark">SOV<span>RA</span></span><span class="sub">The World Order</span></a>
+    <nav class="navlinks">
+      <a href="/wiki/" class="on">Wiki</a>
+      <a href="/wiki/cities.html">Cities</a>
+      <a href="/wiki/economy.html">Economy</a>
+      <a href="/wiki/population.html">Population</a>
+      <a href="/wiki/war.html">War</a>
+      <a href="/wiki/policies.html">Policies</a>
+      <a href="/wiki/projects.html">Projects</a>
+    </nav>
+    <a class="btn" href="/login.html">Play Free</a>
+  </div>
+</header>
+
+<div class="doc-hero">
+  <div class="wrap">
+    <p class="crumb"><a href="/">SOVRA</a> · <a href="/wiki/">Wiki</a></p>
+    <h1>SOVRA Wiki</h1>
+    <p class="standfirst">Every page here is generated from the game engine itself. When a formula changes in the code, these pages change with it — so nothing on this wiki can quietly become wrong.</p>
+  </div>
+</div>
+
+<div class="wrap layout">
+  <nav class="toc">
+    <h4>On this page</h4>
+    <a href="#start">Start here</a>
+    <a href="#why">Why it is different</a>
+    <a href="#quick">Quick reference</a>
+    <a href="#sources">Sourcing</a>
+  </nav>
+  <article>
+<section id="start">
+<h2>Start here</h2>
+
+<div class="cards">
+<a class="wcard" href="/wiki/cities.html"><h3>Cities, Infrastructure and Land</h3><p>Improvement slots, the three cost curves, build limits and why buildings cost steel.</p></a>
+<a class="wcard" href="/wiki/economy.html"><h3>Economy, Income and Production</h3><p>Commerce to income, the power threshold, refining chains, stacking bonuses and upkeep.</p></a>
+<a class="wcard" href="/wiki/population.html"><h3>Population, Disease and Crime</h3><p>The squared density term, the disease floor, crime, and the city age multiplier.</p></a>
+<a class="wcard" href="/wiki/war.html"><h3>War, Combat and Espionage</h3><p>Score and war range, action points, the three-roll system, damage caps, loot and beige.</p></a>
+<a class="wcard" href="/wiki/policies.html"><h3>Policies</h3><p>All 18 policies across three slots — each with a stated cost, not just a gain.</p></a>
+<a class="wcard" href="/wiki/projects.html"><h3>National Projects</h3><p>All 27 permanent investments, their effects and what they cost you.</p></a>
+</div>
+
+</section>
+
+<section id="why">
+<h2>Why this wiki is different</h2>
+
+<p>Most games in this genre have a community wiki: players reverse-engineer the formulas by experiment, write them down, and the page slowly rots as the game is patched. Politics &amp; War's is the well-known example — parts of it are years out of date, and there is no way to tell which parts from the page itself.</p>
+<p>These pages are built by a script that <code class="mono">require()</code>s the game's own engine modules. Constants are read out of <code class="mono">constants.js</code>. Worked examples call the same functions the game calls when it processes your turn. If a coefficient changes, the wiki changes on the next build.</p>
+<div class="note "><div class="t">What this means for you</div><p>You never have to decide whether to trust the wiki or the game. They are the same thing, presented twice. And where a number is still unverified against Politics &amp; War — our own invention rather than a sourced figure — the page says so.</p></div>
+
+</section>
+
+<section id="quick">
+<h2>Quick reference</h2>
+
+<table>
+<thead><tr><th>Thing</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td data-label="Thing">Turn length</td><td data-label="Value">2 hours (12 turns per day)</td></tr>
+<tr><td data-label="Thing">New nation protection</td><td data-label="Value">14 days of beige</td></tr>
+<tr><td data-label="Thing">Starting city</td><td data-label="Value">10 infrastructure, 250 land</td></tr>
+<tr><td data-label="Thing">Improvement slots</td><td data-label="Value">1 per 50 infrastructure</td></tr>
+<tr><td data-label="Thing">Commerce cap</td><td data-label="Value">100% (115% with ITC)</td></tr>
+<tr><td data-label="Thing">War range</td><td data-label="Value">-25% below to +75% of your score</td></tr>
+<tr><td data-label="Thing">War slots</td><td data-label="Value">5 offensive, 3 defensive</td></tr>
+<tr><td data-label="Thing">Action points</td><td data-label="Value">1 per turn, max 12</td></tr>
+<tr><td data-label="Thing">Battle rolls</td><td data-label="Value">3, each at 40–100% of army value</td></tr>
+<tr><td data-label="Thing">Loot cap</td><td data-label="Value">75% of their money, never below $1,000,000</td></tr>
+<tr><td data-label="Thing">Policy lock</td><td data-label="Value">5 days per slot</td></tr>
+<tr><td data-label="Thing">Policies / projects</td><td data-label="Value">18 / 27</td></tr>
+</tbody></table>
+
+</section>
+
+<section id="sources">
+<h2>Verified and unverified numbers</h2>
+
+<p>SOVRA reimplements Politics &amp; War's mechanics as its blueprint. Inside the engine every constant carries a tag:</p>
+<ul>
+  <li><strong>VERIFIED</strong> — sourced from Politics &amp; War documentation</li>
+  <li><strong>PLACEHOLDER</strong> — our value; the real one is unknown to us</li>
+  <li><strong>DESIGN</strong> — our own decision, with no P&amp;W equivalent</li>
+</ul>
+<p>Where a whole system is ours rather than theirs — the crime equation, the policy costs, the material requirements on buildings — the relevant page says so plainly. We would rather tell you a number is provisional than have you build a nation on it and find out later.</p>
+
+</section>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap legal">
+    <span>© <span id="yr">2026</span> SOVRA — The World Order · <a href="/wiki/">Wiki</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></span>
+    <span class="mono">Generated from the game engine · playsovra.com</span>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>

@@ -492,6 +492,12 @@ const COMBAT = {
     naval_battle: 4,                            // PLACEHOLDER
     missile_launch: 8,                          // PLACEHOLDER
     nuclear_attack: 12,                         // PLACEHOLDER
+
+    // DESIGN. Priced at the same 3 MAP as a ground battle on purpose: a
+    // defender's turn should be a real choice between hitting back and digging
+    // in, not a free extra action taken every single time. Fortification ends
+    // the moment you attack, so it cannot be stacked with offence.
+    fortify: 3,                                 // DESIGN
   },
 
   // --- Resistance ----------------------------------------------------------
@@ -568,16 +574,37 @@ const COMBAT = {
  * losing player a cheap, achievable comeback goal.
  */
 const CONTROL_STATES = {
-  ground_control:  { from: 'ground_battle', effect: 'destroys_enemy_aircraft_scaled_by_tanks' }, // VERIFIED
-  air_superiority: { from: 'airstrike',     effect: 'enemy_tank_value_halved', modifier: 0.5 },  // VERIFIED
-  blockade:        { from: 'naval_battle',  effect: 'blocks_resource_and_money_transfers' },     // VERIFIED
+  ground_control: {
+    from: 'ground_battle',
+    effect: 'destroys_enemy_aircraft_scaled_by_tanks',                                          // VERIFIED
+    name: 'Ground Control',
+    // Written from the point of view of whoever is READING it, so the UI can
+    // print them without composing sentences of its own — and so the wiki and
+    // the war card can never describe the same state differently.
+    holding: 'Your tanks are grinding down their aircraft each battle.',
+    suffering: 'Their tanks are destroying your aircraft each battle.',
+  },
+  air_superiority: {
+    from: 'airstrike',
+    effect: 'enemy_tank_value_halved', modifier: 0.5,                                           // VERIFIED
+    name: 'Air Superiority',
+    holding: 'Their tanks count for HALF their value against you.',
+    suffering: 'Your tanks count for HALF their value. This is usually why an even fight stopped being even.',
+  },
+  blockade: {
+    from: 'naval_battle',
+    effect: 'blocks_resource_and_money_transfers',                                              // VERIFIED
+    name: 'Blockade',
+    holding: 'They cannot move resources or money in or out.',
+    suffering: 'You cannot move resources or money in or out until this is broken.',
+  },
 };
 
 /** Declared up front — one enum field that creates distinct player archetypes. */
 const WAR_TYPES = {
-  attrition: { infraDamage: 1.00, loot: 0.25 }, // VERIFIED
-  ordinary:  { infraDamage: 0.50, loot: 0.50 }, // VERIFIED
-  raid:      { infraDamage: 0.25, loot: 1.00 }, // VERIFIED
+  attrition: { infraDamage: 1.00, loot: 0.25, summary: 'Maximum destruction, minimum plunder.' }, // VERIFIED
+  ordinary:  { infraDamage: 0.50, loot: 0.50, summary: 'Balanced — half damage, half loot.' },    // VERIFIED
+  raid:      { infraDamage: 0.25, loot: 1.00, summary: 'Take everything, break almost nothing.' },// VERIFIED
 };
 
 const VICTORY = {

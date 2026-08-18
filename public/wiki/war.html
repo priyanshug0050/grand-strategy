@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>War, Combat and Espionage — SOVRA Wiki</title>
+<meta name="description" content="How war works in SOVRA: score and war range, military action points, the three-roll battle system, infrastructure damage and its cap, loot, control states, resistance, beige and espionage odds. Generated from the game engine.">
+<link rel="canonical" href="https://playsovra.com/wiki/war.html">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#08090C">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="SOVRA">
+<meta property="og:title" content="War, Combat and Espionage — SOVRA Wiki">
+<meta property="og:description" content="How war works in SOVRA: score and war range, military action points, the three-roll battle system, infrastructure damage and its cap, loot, control states, resistance, beige and espionage odds. Generated from the game engine.">
+<meta property="og:url" content="https://playsovra.com/wiki/war.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08090C; --bg2:#0C0E13; --panel:#12151C; --panel2:#171B24;
+  --line:#232935; --line2:#2E3646;
+  --ink:#EEF1F6; --ink2:#A9B2C3; --ink3:#6E7994;
+  --gold:#F5B027; --gold-dim:#8A6413; --cyan:#4DA3FF; --red:#E2483D; --green:#3FBF7F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+
+header{position:sticky;top:0;z-index:50;background:rgba(8,9,12,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .mark{font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;letter-spacing:.14em;color:var(--ink)}
+.brand .mark span{color:var(--gold)}
+.brand .sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+.navlinks{display:flex;align-items:center;gap:24px}
+.navlinks a{font-size:14px;font-weight:500;color:var(--ink2);text-decoration:none}
+.navlinks a:hover,.navlinks a.on{color:var(--gold);text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;padding:9px 18px;border-radius:10px;background:var(--gold);color:#1A1204;text-decoration:none}
+.btn:hover{text-decoration:none}
+
+.doc-hero{padding:52px 0 32px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(245,176,39,.05),transparent)}
+.crumb{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px}
+.crumb a{color:var(--gold)}
+h1{font-family:'Orbitron',sans-serif;font-weight:800;font-size:clamp(28px,5vw,42px);line-height:1.15;margin-bottom:14px}
+.standfirst{color:var(--ink2);font-size:17px;max-width:720px}
+
+.layout{display:grid;grid-template-columns:240px 1fr;gap:52px;padding:44px 0 90px;align-items:start}
+nav.toc{position:sticky;top:90px;border-left:1px solid var(--line);padding-left:18px}
+nav.toc h4{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;font-weight:700}
+nav.toc a{display:block;font-size:13.5px;color:var(--ink2);padding:5px 0;text-decoration:none;line-height:1.45}
+nav.toc a:hover{color:var(--gold);text-decoration:none}
+
+article{max-width:800px;min-width:0}
+article section{margin-bottom:52px;scroll-margin-top:92px}
+article h2{font-family:'Orbitron',sans-serif;font-weight:600;font-size:21px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+article h3{font-size:16px;font-weight:700;margin:26px 0 8px;color:var(--ink)}
+article p{color:var(--ink2);margin-bottom:14px}
+article ul,article ol{color:var(--ink2);margin:0 0 14px 20px}
+article li{margin-bottom:8px}
+article strong{color:var(--ink);font-weight:600}
+article em{color:var(--ink);font-style:italic}
+
+.formula{background:#0A0C11;border:1px solid var(--line2);border-left:3px solid var(--cyan);border-radius:10px;padding:15px 18px;margin:16px 0;overflow-x:auto}
+.formula code{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13.5px;color:var(--ink);white-space:pre;display:block}
+.formula .fnote{display:block;margin-top:9px;font-size:13px;color:var(--ink3)}
+
+.worked{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:16px 18px;margin:16px 0}
+.worked .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:10px}
+table.calc{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px}
+table.calc td{padding:5px 0;border:0;color:var(--ink2);white-space:normal}
+table.calc td:last-child{text-align:right;color:var(--ink);font-weight:600;padding-left:14px}
+table.calc tr:last-child td{border-top:1px solid var(--line);padding-top:9px;color:var(--gold)}
+
+.note{background:var(--panel);border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:10px;padding:16px 18px;margin:18px 0}
+.note p{margin-bottom:0;font-size:14.5px}
+.note .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:8px}
+.note.warn{border-left-color:var(--red)} .note.warn .t{color:var(--red)}
+.note.trap{border-left-color:var(--cyan)} .note.trap .t{color:var(--cyan)}
+
+table{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th{background:var(--panel2);text-align:left;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);padding:11px 12px;font-weight:700;white-space:nowrap}
+td{padding:10px 12px;border-top:1px solid var(--line);color:var(--ink2);vertical-align:top}
+td:first-child{color:var(--ink);font-weight:500}
+td.n{font-family:'JetBrains Mono',ui-monospace,monospace;text-align:right;white-space:nowrap}
+.good{color:var(--green)} .bad{color:var(--red)} .dim{color:var(--ink3)}
+
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:26px 0}
+.wcard{display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;text-decoration:none;transition:border-color .2s,transform .2s}
+.wcard:hover{border-color:var(--gold-dim);transform:translateY(-2px);text-decoration:none}
+.wcard h3{font-family:'Orbitron',sans-serif;font-size:16px;color:var(--ink);margin:0 0 8px}
+.wcard p{color:var(--ink2);font-size:14px;margin:0}
+
+footer{border-top:1px solid var(--line);padding:40px 0;background:var(--bg2)}
+.legal{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--ink3);font-size:13px}
+.legal a{color:var(--ink2)}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;gap:0;padding-top:28px}
+  nav.toc{position:static;border-left:0;border-bottom:1px solid var(--line);padding:0 0 22px;margin-bottom:30px}
+  nav.toc a{display:inline-block;margin-right:16px}
+  .navlinks{display:none}
+  .cards{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .brand .sub{display:none}
+  table{display:block;overflow-x:auto;white-space:nowrap}
+  table.calc{white-space:normal}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/"><span class="mark">SOV<span>RA</span></span><span class="sub">The World Order</span></a>
+    <nav class="navlinks">
+      <a href="/wiki/">Wiki</a>
+      <a href="/wiki/cities.html">Cities</a>
+      <a href="/wiki/economy.html">Economy</a>
+      <a href="/wiki/population.html">Population</a>
+      <a href="/wiki/war.html" class="on">War</a>
+      <a href="/wiki/policies.html">Policies</a>
+      <a href="/wiki/projects.html">Projects</a>
+    </nav>
+    <a class="btn" href="/login.html">Play Free</a>
+  </div>
+</header>
+
+<div class="doc-hero">
+  <div class="wrap">
+    <p class="crumb"><a href="/">SOVRA</a> · <a href="/wiki/">Wiki</a> · War, Combat and Espionage</p>
+    <h1>War, Combat and Espionage</h1>
+    <p class="standfirst">Wars in SOVRA run over days, not minutes. You cannot be knocked out in one hit, you cannot be attacked by someone overwhelmingly larger, and every battle roll is stored so any fight can be replayed and audited afterwards.</p>
+  </div>
+</div>
+
+<div class="wrap layout">
+  <nav class="toc">
+    <h4>On this page</h4>
+    <a href="#score">Score</a>
+    <a href="#range">War range</a>
+    <a href="#map">Action points (MAP)</a>
+    <a href="#rolls">Three rolls</a>
+    <a href="#damage">Damage</a>
+    <a href="#supply">Supply</a>
+    <a href="#control">Control states</a>
+    <a href="#resistance">Winning a war</a>
+    <a href="#espionage">Espionage</a>
+  </nav>
+  <article>
+<section id="score">
+<h2>Score</h2>
+
+<p>Score is both a power rating and a matchmaking weight. That dual role is the most important thing to understand about it.</p>
+<div class="formula"><code>score = 10
+      + (cityCount - 1) * 100
+      + totalInfrastructure / 40
+      + projects * 20
+      + militaryScore</code></div>
+<table>
+<thead><tr><th>Unit</th><th>Score each</th><th>Cap</th></tr></thead>
+<tbody>
+<tr><td data-label="Unit">Soldiers</td><td data-label="Score each">0.0004</td><td data-label="Cap"><span class="dim">—</span></td></tr>
+<tr><td data-label="Unit">Tanks</td><td data-label="Score each">0.0250</td><td data-label="Cap"><span class="dim">—</span></td></tr>
+<tr><td data-label="Unit">Aircraft</td><td data-label="Score each">0.3000</td><td data-label="Cap"><span class="dim">—</span></td></tr>
+<tr><td data-label="Unit">Ships</td><td data-label="Score each">1.0000</td><td data-label="Cap"><span class="dim">—</span></td></tr>
+<tr><td data-label="Unit">Missiles</td><td data-label="Score each">5.0000</td><td data-label="Cap">capped at 50</td></tr>
+<tr><td data-label="Unit">Nukes</td><td data-label="Score each">15.0000</td><td data-label="Cap">capped at 50</td></tr>
+</tbody></table>
+<div class="note trap"><div class="t">Ships are a trap</div><p>A ship is worth <strong>1</strong> score — 40&times; a tank. Building a navy pushes you up into the war range of much larger nations without giving you a proportionate ability to fight them. Soldiers are the most score-efficient unit in the game by a wide margin.</p></div>
+
+</section>
+
+<section id="range">
+<h2>War range</h2>
+
+<p>You can declare on anyone from <strong>-25% below</strong> to <strong>75% above</strong> your score.</p>
+<div class="worked"><div class="t">A nation at score 1,000</div>
+<table class="calc"><tr><td>Can attack</td><td>750 — 1,750</td></tr><tr><td>Can be attacked by</td><td>571.4 — 1,333.3</td></tr></table></div>
+<p>The range is asymmetric on purpose: you can always be hit by someone meaningfully bigger, never by someone overwhelmingly bigger. It is the anti-griefing backbone of the whole game, and it is the reason score management is a real strategic decision rather than a number that only goes up.</p>
+<p>You hold <strong>5 offensive war slots</strong> (6 with the Pirate Economy project) and can be attacked in at most <strong>3</strong> at once.</p>
+
+</section>
+
+<section id="map">
+<h2>Military Action Points</h2>
+
+<p>Attacks cost MAP. You regain <strong>1 per turn</strong> up to a maximum of <strong>12</strong>, so a full bar takes 12 turns — 1.0 days.</p>
+<table>
+<thead><tr><th>Action</th><th>MAP cost</th><th>Equivalent</th></tr></thead>
+<tbody>
+<tr><td data-label="Action">Ground Battle</td><td data-label="MAP cost">3</td><td data-label="Equivalent">3 turns of regen</td></tr>
+<tr><td data-label="Action">Airstrike</td><td data-label="MAP cost">4</td><td data-label="Equivalent">4 turns of regen</td></tr>
+<tr><td data-label="Action">Naval Battle</td><td data-label="MAP cost">4</td><td data-label="Equivalent">4 turns of regen</td></tr>
+<tr><td data-label="Action">Missile Launch</td><td data-label="MAP cost">8</td><td data-label="Equivalent">8 turns of regen</td></tr>
+<tr><td data-label="Action">Nuclear Attack</td><td data-label="MAP cost">12</td><td data-label="Equivalent">12 turns of regen</td></tr>
+<tr><td data-label="Action">Fortify</td><td data-label="MAP cost">3</td><td data-label="Equivalent">3 turns of regen</td></tr>
+</tbody></table>
+<p>This is the mechanism that makes wars take days. You cannot save up an infinite reserve and delete someone in an afternoon, and you cannot be deleted while you sleep.</p>
+
+</section>
+
+<section id="rolls">
+<h2>The three-roll system</h2>
+
+<p>Every battle is decided by <strong>3 independent rolls</strong>. Each side rolls a random fraction of its army value, between <strong>40% and 100%</strong>, and the higher roll wins that exchange.</p>
+<table>
+<thead><tr><th>Rolls won</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td data-label="Rolls won">0</td><td data-label="Result">Utter Failure — no damage at all</td></tr>
+<tr><td data-label="Rolls won">1</td><td data-label="Result">Pyrrhic Victory</td></tr>
+<tr><td data-label="Rolls won">2</td><td data-label="Result">Moderate Success</td></tr>
+<tr><td data-label="Rolls won">3</td><td data-label="Result">Immense Triumph — full damage, control state granted</td></tr>
+</tbody></table>
+<p>Damage scales with the tier: an Immense Triumph deals full damage, a Pyrrhic Victory deals a third of it, an Utter Failure deals none.</p>
+<h3>What the odds actually look like</h3>
+<p>Simulated live, 4,000 battles per row, attacker army value relative to defender:</p>
+<table>
+<thead><tr><th>Ratio</th><th>Utter Failure</th><th>Pyrrhic</th><th>Moderate</th><th>Immense</th><th>Any win</th></tr></thead>
+<tbody>
+<tr><td data-label="Ratio">0.5&times;</td><td data-label="Utter Failure">92.4%</td><td data-label="Pyrrhic">7.5%</td><td data-label="Moderate">0.1%</td><td data-label="Immense">0.0%</td><td data-label="Any win"><strong>7.6%</strong></td></tr>
+<tr><td data-label="Ratio">0.8&times;</td><td data-label="Utter Failure">36.8%</td><td data-label="Pyrrhic">42.9%</td><td data-label="Moderate">17.7%</td><td data-label="Immense">2.7%</td><td data-label="Any win"><strong>63.2%</strong></td></tr>
+<tr><td data-label="Ratio">1.0&times;</td><td data-label="Utter Failure">12.5%</td><td data-label="Pyrrhic">37.3%</td><td data-label="Moderate">36.2%</td><td data-label="Immense">14.0%</td><td data-label="Any win"><strong>87.5%</strong></td></tr>
+<tr><td data-label="Ratio">1.5&times;</td><td data-label="Utter Failure">0.4%</td><td data-label="Pyrrhic">5.3%</td><td data-label="Moderate">31.6%</td><td data-label="Immense">62.7%</td><td data-label="Any win"><strong>99.6%</strong></td></tr>
+<tr><td data-label="Ratio">2.0&times;</td><td data-label="Utter Failure">0.0%</td><td data-label="Pyrrhic">0.2%</td><td data-label="Moderate">7.5%</td><td data-label="Immense">92.3%</td><td data-label="Any win"><strong>100.0%</strong></td></tr>
+<tr><td data-label="Ratio">2.5&times;</td><td data-label="Utter Failure">0.0%</td><td data-label="Pyrrhic">0.0%</td><td data-label="Moderate">0.0%</td><td data-label="Immense">100.0%</td><td data-label="Any win"><strong>100.0%</strong></td></tr>
+</tbody></table>
+<div class="note trap"><div class="t">Why the band is 40–100%</div><p>This is the master tuning knob of the entire game. Widen it and combat becomes coin-flippy; narrow it and combat is pure arithmetic with no reason to ever fight an even match. At 40–100%, a 2.5&times; advantage is a near-certain sweep, but anything below that stays genuinely uncertain — and an underdog can still win.</p></div>
+<div class="note "><div class="t">Every battle is reproducible</div><p>The random seed for each battle is stored. Any fight can be replayed and will produce the identical result, down to the casualty counts. If you think a result was wrong, it can be checked rather than argued about.</p></div>
+
+</section>
+
+<section id="damage">
+<h2>Damage and its cap</h2>
+
+<div class="formula"><code>damage = (attackerValue - defenderValue * 0.5) * coefficient
+       * jitter(0.85–1.05) * (rollsWon / 3)</code></div>
+<div class="formula"><code>cap = cityInfrastructure * 0.5 + 100</code><span class="fnote">Per battle, per city. No city can be destroyed in a single hit — this is what makes wars multi-day affairs.</span></div>
+<p>The attack always targets your <strong>highest-infrastructure city</strong>. Airstrikes aimed at anything other than infrastructure deal 33% collateral damage to it. On an Immense Triumph there is a <strong>10% chance</strong> per battle of destroying an improvement outright.</p>
+<h3>War type — declared up front</h3>
+<table>
+<thead><tr><th>War type</th><th>Infrastructure damage</th><th>Loot</th></tr></thead>
+<tbody>
+<tr><td data-label="War type">Attrition</td><td data-label="Infrastructure damage">&times;1.00</td><td data-label="Loot">&times;0.25</td></tr>
+<tr><td data-label="War type">Ordinary</td><td data-label="Infrastructure damage">&times;0.50</td><td data-label="Loot">&times;0.50</td></tr>
+<tr><td data-label="War type">Raid</td><td data-label="Infrastructure damage">&times;0.25</td><td data-label="Loot">&times;1.00</td></tr>
+</tbody></table>
+<p>One enum field, chosen at declaration, that creates genuinely distinct playstyles. Attrition maximises destruction and minimises what you take home; a raid is the exact inverse.</p>
+
+</section>
+
+<section id="supply">
+<h2>The supply rule</h2>
+
+<div class="note warn"><div class="t">The most important rule in SOVRA combat</div><p>An unsupplied unit contributes <strong>zero</strong> army value but <strong>still takes casualties</strong>. One clause makes logistics mandatory without needing a separate logistics system.</p></div>
+<p>Tanks need munitions and gasoline. Aircraft and ships need more of both. Soldiers fight unarmed at reduced value, so an army with no munitions is not helpless — but it is a fraction of its paper strength.</p>
+<table>
+<thead><tr><th>Unit</th><th>Munitions / battle</th><th>Gasoline / battle</th></tr></thead>
+<tbody>
+<tr><td data-label="Unit">Soldiers</td><td data-label="Munitions / battle">0.0002</td><td data-label="Gasoline / battle"><span class="dim">—</span></td></tr>
+<tr><td data-label="Unit">Tanks</td><td data-label="Munitions / battle">0.0100</td><td data-label="Gasoline / battle">0.0100</td></tr>
+<tr><td data-label="Unit">Aircraft</td><td data-label="Munitions / battle">0.2500</td><td data-label="Gasoline / battle">0.2500</td></tr>
+<tr><td data-label="Unit">Ships</td><td data-label="Munitions / battle">2.5000</td><td data-label="Gasoline / battle">1.5000</td></tr>
+</tbody></table>
+<p>Supply is allocated to <strong>vehicles before soldiers</strong>, and that priority is derived rather than assumed: a tank converts each munition into more army value than a soldier does, so a limited stockpile is worth more in the tanks. The engine checks this rather than hard-coding it.</p>
+<div class="formula"><code>armyValue = unarmedSoldiers * 1
+          + armedSoldiers * 1.75
+          + tanks * 40
+          + defenderPopulation / 400   (defender only)</code></div>
+
+</section>
+
+<section id="control">
+<h2>Control states</h2>
+
+<p>Winning a battle outright grants a persistent debuff on your opponent rather than a damage multiplier.</p>
+<table>
+<thead><tr><th>State</th><th>Won by</th><th>If you hold it</th><th>If they hold it</th></tr></thead>
+<tbody>
+<tr><td data-label="State">Ground Control</td><td data-label="Won by">Ground Battle</td><td data-label="If you hold it">Your tanks are grinding down their aircraft each battle.</td><td data-label="If they hold it">Their tanks are destroying your aircraft each battle.</td></tr>
+<tr><td data-label="State">Air Superiority</td><td data-label="Won by">Airstrike</td><td data-label="If you hold it">Their tanks count for HALF their value against you.</td><td data-label="If they hold it">Your tanks count for HALF their value. This is usually why an even fight stopped being even.</td></tr>
+<tr><td data-label="State">Blockade</td><td data-label="Won by">Naval Battle</td><td data-label="If you hold it">They cannot move resources or money in or out.</td><td data-label="If they hold it">You cannot move resources or money in or out until this is broken.</td></tr>
+</tbody></table>
+<h3>Fortifying</h3>
+<p>Digging in costs <strong>3 action points</strong> and raises the casualties an attacker takes against you by <strong>25%</strong>. It ends the moment you attack, so it cannot be stacked with offence — a turn is a real choice between hitting back and holding on.</p>
+<p>It costs the same as a ground battle deliberately. A free defensive action taken every single turn is not a decision, and a defender with no decisions is just a target.</p>
+<div class="note "><div class="t">The comeback clause</div><p>Only an <strong>Immense Triumph</strong> grants you a control state — but <strong>any</strong> victory nullifies your enemy&#39;s control over you. A losing player always has a cheap, achievable goal: win one roll and break their grip. Without this asymmetry, losing the first battle would mean losing the war.</p></div>
+
+</section>
+
+<section id="resistance">
+<h2>Resistance, loot and beige</h2>
+
+<p>Every war starts at <strong>100 resistance</strong>. Attacks remove it; at zero the war is lost.</p>
+<table>
+<thead><tr><th>Attack</th><th>Resistance removed (Immense Triumph)</th><th>Minimum attacks</th></tr></thead>
+<tbody>
+<tr><td data-label="Attack">Ground Battle</td><td data-label="Resistance removed (Immense Triumph)">10</td><td data-label="Minimum attacks">10</td></tr>
+<tr><td data-label="Attack">Airstrike</td><td data-label="Resistance removed (Immense Triumph)">8</td><td data-label="Minimum attacks">13</td></tr>
+<tr><td data-label="Attack">Naval Battle</td><td data-label="Resistance removed (Immense Triumph)">14</td><td data-label="Minimum attacks">8</td></tr>
+<tr><td data-label="Attack">Missile Launch</td><td data-label="Resistance removed (Immense Triumph)">12</td><td data-label="Minimum attacks">9</td></tr>
+<tr><td data-label="Attack">Nuclear Attack</td><td data-label="Resistance removed (Immense Triumph)">20</td><td data-label="Minimum attacks">5</td></tr>
+</tbody></table>
+<h3>Loot</h3>
+<div class="formula"><code>loot never exceeds 75% of their money
+loot can never take a nation below $1,000,000</code></div>
+<p>Both limits matter. The cap stops a single defeat from ending someone's game; the floor guarantees a beaten nation still has enough to rebuild.</p>
+<h3>Losing a war</h3>
+<ul>
+  <li><strong>10%</strong> of money and <strong>10%</strong> of resources taken</li>
+  <li>Up to <strong>4%</strong> infrastructure lost in <em>every</em> city</li>
+  <li><strong>2 days of beige</strong>, stacking per war lost</li>
+  <li>Credits are <strong>not</strong> lootable; the alliance bank <strong>is</strong></li>
+</ul>
+<p>Beige makes you immune to <em>new</em> declarations — existing wars continue. New nations start with <strong>14 days</strong> of it. Leaving beige is one-way: you can never go back voluntarily.</p>
+<div class="note warn"><div class="t">Alliances are not playable yet</div><p>The engine models alliance banks, alliance tax and colour trade blocs, and this page documents those rules because they are real code. But there is no interface to found or join an alliance yet — it is the next major system being built. Until then, the alliance-bank line above describes a rule with nothing to apply it to.</p></div>
+
+</section>
+
+<section id="espionage">
+<h2>Espionage</h2>
+
+<p>A clean opposed check. Your spy strength against three times theirs, plus a bonus for taking your time.</p>
+<div class="formula"><code>odds = (safetyLevel * 25) + (yourSpies * 100) / ((enemySpies * 3) + 1)
+finalOdds = odds / operationModifier</code></div>
+<table>
+<thead><tr><th>Operation</th><th>Difficulty</th></tr></thead>
+<tbody>
+<tr><td data-label="Operation">Gather Intelligence</td><td data-label="Difficulty">&divide;1.0</td></tr>
+<tr><td data-label="Operation">Assassinate Spies</td><td data-label="Difficulty">&divide;1.5</td></tr>
+<tr><td data-label="Operation">Sabotage Tanks</td><td data-label="Difficulty">&divide;1.5</td></tr>
+<tr><td data-label="Operation">Sabotage Aircraft</td><td data-label="Difficulty">&divide;2.0</td></tr>
+<tr><td data-label="Operation">Sabotage Ships</td><td data-label="Difficulty">&divide;3.0</td></tr>
+<tr><td data-label="Operation">Sabotage Missile</td><td data-label="Difficulty">&divide;4.0</td></tr>
+<tr><td data-label="Operation">Sabotage Nuke</td><td data-label="Difficulty">&divide;5.0</td></tr>
+</tbody></table>
+<p>The <strong>&times;3 weighting on enemy spies</strong> is the whole design. Defence is roughly three times cheaper than offence, so a nation that keeps a modest spy count is very hard to operate against — and ignoring spies entirely is an open invitation.</p>
+<table>
+<thead><tr><th>Safety level</th><th>Odds bonus</th></tr></thead>
+<tbody>
+<tr><td data-label="Safety level">Quick And Dirty</td><td data-label="Odds bonus">+25%</td></tr>
+<tr><td data-label="Safety level">Normal Precautions</td><td data-label="Odds bonus">+50%</td></tr>
+<tr><td data-label="Safety level">Extremely Covert</td><td data-label="Odds bonus">+75%</td></tr>
+</tbody></table>
+<p>Espionage results are seeded and stored the same way battles are.</p>
+
+</section>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap legal">
+    <span>© <span id="yr">2026</span> SOVRA — The World Order · <a href="/wiki/">Wiki</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></span>
+    <span class="mono">Generated from the game engine · playsovra.com</span>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>

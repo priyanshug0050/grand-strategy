@@ -52,6 +52,7 @@
   .grid.cards { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
   .policy-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
   .impgrid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .imp, .imp * { min-width: 0; }
 }
 
 /* ==========================================================================
@@ -125,12 +126,16 @@
 
   table.ledger-table,
   table.market-overview,
-  table.targets {
+  table.targets,
+  table.rankings,
+  table.battles {
     display: block;
   }
   table.ledger-table thead,
   table.market-overview thead,
-  table.targets thead {
+  table.targets thead,
+  table.rankings thead,
+  table.battles thead {
     /* Not display:none — that removes it from the accessibility tree too.
        Clipping keeps it available to screen readers. */
     position: absolute; width: 1px; height: 1px;
@@ -138,11 +143,15 @@
   }
   table.ledger-table tbody,
   table.market-overview tbody,
-  table.targets tbody { display: block; }
+  table.targets tbody,
+  table.rankings tbody,
+  table.battles tbody { display: block; }
 
   table.ledger-table tr,
   table.market-overview tr,
-  table.targets tr {
+  table.targets tr,
+  table.rankings tr,
+  table.battles tr {
     display: block;
     border: 1px solid var(--line);
     border-left: 2px solid var(--brass);
@@ -153,7 +162,9 @@
 
   table.ledger-table td,
   table.market-overview td,
-  table.targets td {
+  table.targets td,
+  table.rankings td,
+  table.battles td {
     display: flex; justify-content: space-between; align-items: baseline;
     gap: 1rem;
     border: 0; border-bottom: 1px solid rgba(44,58,68,.5);
@@ -161,7 +172,9 @@
   }
   table.ledger-table tr td:last-child,
   table.market-overview tr td:last-child,
-  table.targets tr td:last-child { border-bottom: 0; }
+  table.targets tr td:last-child,
+  table.rankings tr td:last-child,
+  table.battles tr td:last-child { border-bottom: 0; }
 
   /* The label, pulled from data-label. Cells with no label (buttons, actions)
      simply span the full width instead. */
@@ -251,8 +264,12 @@
   .citytab .nm { font-size: .85rem; }
 
   /* Twenty-seven improvements is a genuinely long page. Two columns keeps it
-     scannable; one column would double an already-tall page for no gain. */
-  .impgrid { grid-template-columns: 1fr 1fr; }
+     scannable; one column would double an already-tall page for no gain.
+     minmax(0,1fr) rather than 1fr: a grid item defaults to min-width:auto, so
+     one long unbreakable word inside a card widens the whole column and pushes
+     the document sideways. This is the fix for that, not a cosmetic tweak. */
+  .impgrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .imp, .imp * { overflow-wrap: anywhere; }
   .imp { padding: .55rem .6rem; }
 
   /* Category headers stick while you scroll their section, so you always know
@@ -356,4 +373,11 @@
   /* A sticky three-row header eats half a landscape phone screen. */
   .topbar { position: static; }
   .wrap { padding-top: .75rem; }
+}
+
+@media (max-width: 640px) {
+  /* The label column is fixed at 11rem on desktop; on a phone that leaves the
+     explanation about four words wide. Stack them instead. */
+  .ctrl { grid-template-columns: 1fr; gap: .2rem; }
+  .ctrl button { margin-left: 0; margin-top: .4rem; display: block; width: 100%; }
 }

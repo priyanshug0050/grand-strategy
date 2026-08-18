@@ -1,4 +1,4 @@
-# Grand Strategy
+# SOVRA — The World Order
 
 Multiplayer nation-simulation browser game (PBBG), built on Politics & War mechanics.
 
@@ -61,3 +61,20 @@ Generate a JWT secret with:
   cannot call the API.
 - `RESET_DB=true` wipes every table on boot. Set it back to false immediately.
 - Never commit `.env`.
+
+## Wiki
+
+`public/wiki/` is **generated**, not hand-written. Every number on those pages is
+read out of `src/engine/constants.js` at build time, and every worked example is
+computed by calling the same functions the game calls.
+
+```bash
+npm run wiki      # regenerate public/wiki/, sitemap.xml and robots.txt
+```
+
+Run it after ANY change to the engine. `npm test` fails if the wiki on disk no
+longer matches what the engine would produce — that check exists so the
+documentation cannot quietly go stale, which is the failure mode every
+community-maintained game wiki eventually hits.
+
+Do not hand-edit files in `public/wiki/`. Edit the prose in `make-wiki.js`.

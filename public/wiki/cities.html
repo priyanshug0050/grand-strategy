@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cities, Infrastructure and Land — SOVRA Wiki</title>
+<meta name="description" content="How city costs work in SOVRA: the infrastructure cost curve, land brackets, the cubic new-city price, improvement slots, build limits and material costs. Every figure generated from the game engine.">
+<link rel="canonical" href="https://playsovra.com/wiki/cities.html">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#08090C">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="SOVRA">
+<meta property="og:title" content="Cities, Infrastructure and Land — SOVRA Wiki">
+<meta property="og:description" content="How city costs work in SOVRA: the infrastructure cost curve, land brackets, the cubic new-city price, improvement slots, build limits and material costs. Every figure generated from the game engine.">
+<meta property="og:url" content="https://playsovra.com/wiki/cities.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08090C; --bg2:#0C0E13; --panel:#12151C; --panel2:#171B24;
+  --line:#232935; --line2:#2E3646;
+  --ink:#EEF1F6; --ink2:#A9B2C3; --ink3:#6E7994;
+  --gold:#F5B027; --gold-dim:#8A6413; --cyan:#4DA3FF; --red:#E2483D; --green:#3FBF7F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+
+header{position:sticky;top:0;z-index:50;background:rgba(8,9,12,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .mark{font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;letter-spacing:.14em;color:var(--ink)}
+.brand .mark span{color:var(--gold)}
+.brand .sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+.navlinks{display:flex;align-items:center;gap:24px}
+.navlinks a{font-size:14px;font-weight:500;color:var(--ink2);text-decoration:none}
+.navlinks a:hover,.navlinks a.on{color:var(--gold);text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;padding:9px 18px;border-radius:10px;background:var(--gold);color:#1A1204;text-decoration:none}
+.btn:hover{text-decoration:none}
+
+.doc-hero{padding:52px 0 32px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(245,176,39,.05),transparent)}
+.crumb{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px}
+.crumb a{color:var(--gold)}
+h1{font-family:'Orbitron',sans-serif;font-weight:800;font-size:clamp(28px,5vw,42px);line-height:1.15;margin-bottom:14px}
+.standfirst{color:var(--ink2);font-size:17px;max-width:720px}
+
+.layout{display:grid;grid-template-columns:240px 1fr;gap:52px;padding:44px 0 90px;align-items:start}
+nav.toc{position:sticky;top:90px;border-left:1px solid var(--line);padding-left:18px}
+nav.toc h4{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px;font-weight:700}
+nav.toc a{display:block;font-size:13.5px;color:var(--ink2);padding:5px 0;text-decoration:none;line-height:1.45}
+nav.toc a:hover{color:var(--gold);text-decoration:none}
+
+article{max-width:800px;min-width:0}
+article section{margin-bottom:52px;scroll-margin-top:92px}
+article h2{font-family:'Orbitron',sans-serif;font-weight:600;font-size:21px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+article h3{font-size:16px;font-weight:700;margin:26px 0 8px;color:var(--ink)}
+article p{color:var(--ink2);margin-bottom:14px}
+article ul,article ol{color:var(--ink2);margin:0 0 14px 20px}
+article li{margin-bottom:8px}
+article strong{color:var(--ink);font-weight:600}
+article em{color:var(--ink);font-style:italic}
+
+.formula{background:#0A0C11;border:1px solid var(--line2);border-left:3px solid var(--cyan);border-radius:10px;padding:15px 18px;margin:16px 0;overflow-x:auto}
+.formula code{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13.5px;color:var(--ink);white-space:pre;display:block}
+.formula .fnote{display:block;margin-top:9px;font-size:13px;color:var(--ink3)}
+
+.worked{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:16px 18px;margin:16px 0}
+.worked .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:10px}
+table.calc{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px}
+table.calc td{padding:5px 0;border:0;color:var(--ink2);white-space:normal}
+table.calc td:last-child{text-align:right;color:var(--ink);font-weight:600;padding-left:14px}
+table.calc tr:last-child td{border-top:1px solid var(--line);padding-top:9px;color:var(--gold)}
+
+.note{background:var(--panel);border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:10px;padding:16px 18px;margin:18px 0}
+.note p{margin-bottom:0;font-size:14.5px}
+.note .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:8px}
+.note.warn{border-left-color:var(--red)} .note.warn .t{color:var(--red)}
+.note.trap{border-left-color:var(--cyan)} .note.trap .t{color:var(--cyan)}
+
+table{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th{background:var(--panel2);text-align:left;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);padding:11px 12px;font-weight:700;white-space:nowrap}
+td{padding:10px 12px;border-top:1px solid var(--line);color:var(--ink2);vertical-align:top}
+td:first-child{color:var(--ink);font-weight:500}
+td.n{font-family:'JetBrains Mono',ui-monospace,monospace;text-align:right;white-space:nowrap}
+.good{color:var(--green)} .bad{color:var(--red)} .dim{color:var(--ink3)}
+
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:26px 0}
+.wcard{display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;text-decoration:none;transition:border-color .2s,transform .2s}
+.wcard:hover{border-color:var(--gold-dim);transform:translateY(-2px);text-decoration:none}
+.wcard h3{font-family:'Orbitron',sans-serif;font-size:16px;color:var(--ink);margin:0 0 8px}
+.wcard p{color:var(--ink2);font-size:14px;margin:0}
+
+footer{border-top:1px solid var(--line);padding:40px 0;background:var(--bg2)}
+.legal{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--ink3);font-size:13px}
+.legal a{color:var(--ink2)}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;gap:0;padding-top:28px}
+  nav.toc{position:static;border-left:0;border-bottom:1px solid var(--line);padding:0 0 22px;margin-bottom:30px}
+  nav.toc a{display:inline-block;margin-right:16px}
+  .navlinks{display:none}
+  .cards{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .brand .sub{display:none}
+  table{display:block;overflow-x:auto;white-space:nowrap}
+  table.calc{white-space:normal}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/"><span class="mark">SOV<span>RA</span></span><span class="sub">The World Order</span></a>
+    <nav class="navlinks">
+      <a href="/wiki/">Wiki</a>
+      <a href="/wiki/cities.html" class="on">Cities</a>
+      <a href="/wiki/economy.html">Economy</a>
+      <a href="/wiki/population.html">Population</a>
+      <a href="/wiki/war.html">War</a>
+      <a href="/wiki/policies.html">Policies</a>
+      <a href="/wiki/projects.html">Projects</a>
+    </nav>
+    <a class="btn" href="/login.html">Play Free</a>
+  </div>
+</header>
+
+<div class="doc-hero">
+  <div class="wrap">
+    <p class="crumb"><a href="/">SOVRA</a> · <a href="/wiki/">Wiki</a> · Cities, Infrastructure and Land</p>
+    <h1>Cities, Infrastructure and Land</h1>
+    <p class="standfirst">Cities are where everything in SOVRA physically happens. Three separate cost curves govern them, and each one bends in a different place — which is why the cheapest thing to buy changes as your nation grows.</p>
+  </div>
+</div>
+
+<div class="wrap layout">
+  <nav class="toc">
+    <h4>On this page</h4>
+    <a href="#slots">Improvement slots</a>
+    <a href="#infra">Infrastructure cost</a>
+    <a href="#land">Land cost</a>
+    <a href="#newcity">New city cost</a>
+    <a href="#improvements">Improvement table</a>
+    <a href="#materials">Material costs</a>
+  </nav>
+  <article>
+<section id="slots">
+<h2>Improvement slots</h2>
+
+<p>Every building you own occupies a slot, and slots come from infrastructure alone. One slot per <strong>50 infrastructure</strong>, rounded down.</p>
+<div class="formula"><code>slots = floor(infrastructure / 50)</code></div>
+<table>
+<thead><tr><th>Infrastructure</th><th>Slots</th></tr></thead>
+<tbody>
+<tr><td data-label="Infrastructure">10 (starting)</td><td data-label="Slots">0</td></tr>
+<tr><td data-label="Infrastructure">50</td><td data-label="Slots">1</td></tr>
+<tr><td data-label="Infrastructure">500</td><td data-label="Slots">10</td></tr>
+<tr><td data-label="Infrastructure">1,000</td><td data-label="Slots">20</td></tr>
+<tr><td data-label="Infrastructure">2,000</td><td data-label="Slots">40</td></tr>
+</tbody></table>
+<p>A new city starts with <strong>10 infrastructure</strong> and <strong>250 land</strong>, which means <strong>0 slots</strong>. Your first purchase in any new city is always infrastructure, because until you have it there is nowhere to put anything.</p>
+<div class="note "><div class="t">Slots are the real constraint</div><p>Money is renewable; slots are not. Past about 1,000 infrastructure the interesting question stops being "can I afford this building" and becomes "what am I giving up to fit it". Hospitals, police stations and power plants all compete for the same space as the buildings that actually earn.</p></div>
+
+</section>
+
+<section id="infra">
+<h2>Infrastructure cost</h2>
+
+<p>Infrastructure is bought in blocks of 100, and the unit price climbs with how much you already have.</p>
+<div class="formula"><code>unitCost = 300 + ((currentInfra - 10) ^ 2.2) / 710</code><span class="fnote">The exponent is what makes tall cities expensive and wide nations viable.</span></div>
+<div class="note trap"><div class="t">The offset quirk</div><p>Because of the <code class="mono">- 10</code> term, infrastructure is <em>not</em> cheapest at zero — the minimum unit price sits at exactly 10 infrastructure, which is where cities start. This is inherited from Politics &amp; War and it is not a bug.</p></div>
+<table>
+<thead><tr><th>Purchase</th><th>Unit cost at start</th><th>Total</th></tr></thead>
+<tbody>
+<tr><td data-label="Purchase">0 &rarr; 100</td><td data-label="Unit cost at start">$300</td><td data-label="Total">$30,000</td></tr>
+<tr><td data-label="Purchase">500 &rarr; 600</td><td data-label="Unit cost at start">$1,467</td><td data-label="Total">$146,727</td></tr>
+<tr><td data-label="Purchase">1,000 &rarr; 1,100</td><td data-label="Unit cost at start">$5,785</td><td data-label="Total">$578,453</td></tr>
+<tr><td data-label="Purchase">1,500 &rarr; 1,600</td><td data-label="Unit cost at start">$13,782</td><td data-label="Total">$1,378,191</td></tr>
+<tr><td data-label="Purchase">2,000 &rarr; 2,100</td><td data-label="Unit cost at start">$25,781</td><td data-label="Total">$2,578,111</td></tr>
+<tr><td data-label="Purchase">3,000 &rarr; 3,100</td><td data-label="Unit cost at start">$62,705</td><td data-label="Total">$6,270,484</td></tr>
+</tbody></table>
+<div class="worked"><div class="t">Live from the engine — buying 100 infrastructure at 1,000</div>
+<table class="calc"><tr><td>Unit cost at 1,000 infra</td><td>$5,785</td></tr><tr><td>Unit cost at 1,100 infra</td><td>$7,078</td></tr><tr><td>Total for the 100 block</td><td>$578,453</td></tr></table></div>
+<p>Buying in exact multiples of 100 is always cheapest. Buying 397 units instead of 400 costs you more per unit for no benefit, and the game will warn you before it charges.</p>
+
+</section>
+
+<section id="land">
+<h2>Land cost</h2>
+
+<p>Land does two things: it raises the ceiling on farm output, and it lowers population density, which is the single biggest lever on disease.</p>
+<div class="formula"><code>unitCost = 50 + 0.002 * (currentLand - 20)^2</code><span class="fnote">Charged in brackets of 500; the first bracket is 250 because cities spawn with that much.</span></div>
+<table>
+<thead><tr><th>Land held</th><th>Unit cost</th></tr></thead>
+<tbody>
+<tr><td data-label="Land held">250</td><td data-label="Unit cost">$156</td></tr>
+<tr><td data-label="Land held">500</td><td data-label="Unit cost">$511</td></tr>
+<tr><td data-label="Land held">1,000</td><td data-label="Unit cost">$1,971</td></tr>
+<tr><td data-label="Land held">2,000</td><td data-label="Unit cost">$7,891</td></tr>
+<tr><td data-label="Land held">3,000</td><td data-label="Unit cost">$17,811</td></tr>
+</tbody></table>
+<div class="worked"><div class="t">Live from the engine — 250 to 1,000 land</div>
+<table class="calc"><tr><td>Bracket 250 &rarr; 500</td><td>$38,950</td></tr><tr><td>Bracket 500 &rarr; 1,000</td><td>$255,400</td></tr><tr><td>Total</td><td>$294,350</td></tr></table></div>
+<p>Land is quadratic rather than exponential, so it stays affordable far longer than infrastructure does. For most cities the correct reflex when disease appears is <strong>buy land, not hospitals</strong> — hospitals cost a slot, land does not.</p>
+
+</section>
+
+<section id="newcity">
+<h2>Founding a new city</h2>
+
+<p>New cities are the game's main long-term money sink, and the price is cubic in how many you already have.</p>
+<div class="formula"><code>cost = 50,000 * (X - 1)^3 + 150,000 * X + 75,000
+      where X = your current city count</code></div>
+<table>
+<thead><tr><th>Buying</th><th>Cost</th><th>Cooldown after</th></tr></thead>
+<tbody>
+<tr><td data-label="Buying">City 2</td><td data-label="Cost">$225,000</td><td data-label="Cooldown after"><span class="dim">none</span></td></tr>
+<tr><td data-label="Buying">City 5</td><td data-label="Cost">$2,025,000</td><td data-label="Cooldown after"><span class="dim">none</span></td></tr>
+<tr><td data-label="Buying">City 10</td><td data-label="Cost">$27,025,000</td><td data-label="Cooldown after"><span class="dim">none</span></td></tr>
+<tr><td data-label="Buying">City 15</td><td data-label="Cost">$112,025,000</td><td data-label="Cooldown after">120 turns (10 days)</td></tr>
+<tr><td data-label="Buying">City 20</td><td data-label="Cost">$294,525,000</td><td data-label="Cooldown after">120 turns (10 days)</td></tr>
+<tr><td data-label="Buying">City 25</td><td data-label="Cost">$612,025,000</td><td data-label="Cooldown after">120 turns (10 days)</td></tr>
+<tr><td data-label="Buying">City 30</td><td data-label="Cost">$1,102,025,000</td><td data-label="Cooldown after">120 turns (10 days)</td></tr>
+</tbody></table>
+<p>Your first <strong>10 cities</strong> have no timer. From city 11 onwards each purchase locks the next one for <strong>120 turns</strong> — 10 days.</p>
+<div class="note trap"><div class="t">Discount order matters</div><p>Project discounts (Urban Planning and friends) are <strong>flat subtractions</strong> and they stack. The Manifest Destiny policy is a <strong>multiplier</strong>. The engine applies the flat discounts first, then the multiplier — applying them the other way round produces a materially different price, and it is a classic source of bugs in this genre. Cost never falls below $1.</p></div>
+
+</section>
+
+<section id="improvements">
+<h2>Every improvement</h2>
+
+<p>Costs, limits and power requirements for all 27 buildings. "Power" means the building produces nothing at all in an unpowered city — it still costs upkeep.</p>
+<table>
+<thead><tr><th>Improvement</th><th>Category</th><th>Money</th><th>Materials</th><th>Upkeep</th><th>Limit/city</th><th>Needs power</th></tr></thead>
+<tbody>
+<tr><td data-label="Improvement">Coal Mine</td><td data-label="Category">raw</td><td data-label="Money">$1,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$400/day</td><td data-label="Limit/city">10</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Oil Well</td><td data-label="Category">raw</td><td data-label="Money">$1,500</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$600/day</td><td data-label="Limit/city">10</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Iron Mine</td><td data-label="Category">raw</td><td data-label="Money">$9,500</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$400/day</td><td data-label="Limit/city">10</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Bauxite Mine</td><td data-label="Category">raw</td><td data-label="Money">$9,500</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$400/day</td><td data-label="Limit/city">10</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Lead Mine</td><td data-label="Category">raw</td><td data-label="Money">$9,500</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$400/day</td><td data-label="Limit/city">10</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Uranium Mine</td><td data-label="Category">raw</td><td data-label="Money">$25,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$1,000/day</td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Farm</td><td data-label="Category">raw</td><td data-label="Money">$1,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$300/day</td><td data-label="Limit/city">20</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Steel Mill</td><td data-label="Category">manufacturing</td><td data-label="Money">$45,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$4,000/day</td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Aluminum Refinery</td><td data-label="Category">manufacturing</td><td data-label="Money">$45,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$4,000/day</td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Oil Refinery</td><td data-label="Category">manufacturing</td><td data-label="Money">$45,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$4,000/day</td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Munitions Factory</td><td data-label="Category">manufacturing</td><td data-label="Money">$45,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$4,000/day</td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Coal Power</td><td data-label="Category">power</td><td data-label="Money">$5,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$1,200/day</td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Oil Power</td><td data-label="Category">power</td><td data-label="Money">$7,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$1,800/day</td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Nuclear Power</td><td data-label="Category">power</td><td data-label="Money">$500,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$10,500/day</td><td data-label="Limit/city">2</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Wind Power</td><td data-label="Category">power</td><td data-label="Money">$30,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep">$500/day</td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Police Station</td><td data-label="Category">civil</td><td data-label="Money">$75,000</td><td data-label="Materials">40 steel, 15 munitions</td><td data-label="Upkeep">$750/day</td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Hospital</td><td data-label="Category">civil</td><td data-label="Money">$100,000</td><td data-label="Materials">50 steel, 40 aluminum</td><td data-label="Upkeep">$1,000/day</td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Recycling Center</td><td data-label="Category">civil</td><td data-label="Money">$125,000</td><td data-label="Materials">70 steel, 30 aluminum</td><td data-label="Upkeep">$2,500/day</td><td data-label="Limit/city">3</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Subway</td><td data-label="Category">civil</td><td data-label="Money">$250,000</td><td data-label="Materials">200 steel, 100 aluminum</td><td data-label="Upkeep">$3,250/day</td><td data-label="Limit/city">1</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Supermarket</td><td data-label="Category">commerce</td><td data-label="Money">$5,000</td><td data-label="Materials">10 steel</td><td data-label="Upkeep">$600/day</td><td data-label="Limit/city">4</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Bank</td><td data-label="Category">commerce</td><td data-label="Money">$15,000</td><td data-label="Materials">25 steel, 10 aluminum</td><td data-label="Upkeep">$1,800/day</td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Shopping Mall</td><td data-label="Category">commerce</td><td data-label="Money">$45,000</td><td data-label="Materials">60 steel, 30 aluminum</td><td data-label="Upkeep">$5,400/day</td><td data-label="Limit/city">4</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Stadium</td><td data-label="Category">commerce</td><td data-label="Money">$100,000</td><td data-label="Materials">120 steel, 80 aluminum</td><td data-label="Upkeep">$12,150/day</td><td data-label="Limit/city">3</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Barracks</td><td data-label="Category">military</td><td data-label="Money">$3,000</td><td data-label="Materials"><span class="dim">—</span></td><td data-label="Upkeep"><span class="dim">—</span></td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="dim">no</span></td></tr>
+<tr><td data-label="Improvement">Factory</td><td data-label="Category">military</td><td data-label="Money">$15,000</td><td data-label="Materials">30 steel</td><td data-label="Upkeep"><span class="dim">—</span></td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Hangar</td><td data-label="Category">military</td><td data-label="Money">$100,000</td><td data-label="Materials">80 steel, 120 aluminum</td><td data-label="Upkeep"><span class="dim">—</span></td><td data-label="Limit/city">5</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+<tr><td data-label="Improvement">Drydock</td><td data-label="Category">military</td><td data-label="Money">$250,000</td><td data-label="Materials">300 steel, 60 aluminum</td><td data-label="Upkeep"><span class="dim">—</span></td><td data-label="Limit/city">3</td><td data-label="Needs power"><span class="bad">yes</span></td></tr>
+</tbody></table>
+
+</section>
+
+<section id="materials">
+<h2>Why buildings cost steel</h2>
+
+<p>Commerce, civil and military buildings cost <strong>refined materials</strong> as well as money. Raw extraction and manufacturing buildings cost money only.</p>
+<p>That asymmetry is deliberate. If a steel mill required steel, a new player with no industry could never start one — a chicken-and-egg trap with no exit. And if nothing consumed refined goods domestically, manufacturing would exist purely to sell on the market, which makes a rich nation able to skip industry entirely and simply buy its way to maximum commerce.</p>
+<p>As it stands, growth costs production time rather than only cash, and steel and aluminium have a use even when the market price is bad.</p>
+<div class="note "><div class="t">Barracks are deliberately free of materials</div><p>Soldiers are the one military unit a nation with no industry can still raise. A player who has been bombed flat needs a route back to defending themselves, and $3,000 with no material cost is that route.</p></div>
+<p>Demolishing returns <strong>50% of the materials</strong> and <strong>no money</strong>. A full refund would let you launder value by cycling build and demolish; a zero refund would make one misclick on a 300-steel drydock unrecoverable.</p>
+
+</section>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap legal">
+    <span>© <span id="yr">2026</span> SOVRA — The World Order · <a href="/wiki/">Wiki</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></span>
+    <span class="mono">Generated from the game engine · playsovra.com</span>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>

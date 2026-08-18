@@ -48,7 +48,7 @@ async function api(path, opts={}) {
  * leftover data. Clear this suite's own rows first — deleting a user cascades
  * to its nations, cities, wars and battles.
  */
-const TEST_EMAILS = ['a@test.com','d@test.com','e@test.com','alt@test.com','ui@t.com'];
+const TEST_EMAILS = ['a@test.com','d@test.com','e@test.com','alt@test.com','alt2@test.com','ui@t.com'];
 
 async function cleanup() {
   await db.query(`DELETE FROM users WHERE email = ANY($1::text[])`, [TEST_EMAILS]);
@@ -230,15 +230,49 @@ async function cleanup() {
   });
 
   await t('LINKED accounts still blocked from warring', async () => {
-    const alt = await api('/api/auth/register',{method:'POST',body:{
-      email:'alt@test.com',password:'password123',nationName:'AlphaAlt',continent:'europe'},
-      ua:'player-alpha'});   // same fingerprint as Alpha
-    await db.query(`UPDATE nations SET beige_until_turn = NULL, color='blue' WHERE id=$1`,[alt.body.nationId]);
-    await db.query('UPDATE cities SET infrastructure=500 WHERE nation_id=$1',[alt.body.nationId]);
-    const r = await api('/api/war/declare',{method:'POST',token,ua:'player-alpha',
-      body:{targetId:alt.body.nationId}});
-    eq(r.status,400);
-    if(!r.body.error.includes('linked')) throw new Error(r.body.error);
+    // ALLOW_LINKED_WARS is an escape hatch for local testing and shared
+    // connections, and it is read per request. Leaving it to whatever is in
+    // .env made this test report on the developer's config rather than on the
+    // code: set it to true to fight your own alts locally and this test starts
+    // failing for a reason that has nothing to do with the guard.
+    const flagBefore = process.env.ALLOW_LINKED_WARS;
+    process.env.ALLOW_LINKED_WARS = 'false';
+    try {
+      const alt = await api('/api/auth/register',{method:'POST',body:{
+        email:'alt@test.com',password:'password123',nationName:'AlphaAlt',continent:'europe'},
+        ua:'player-alpha'});   // same fingerprint as Alpha
+      await db.query(`UPDATE nations SET beige_until_turn = NULL, color='blue' WHERE id=$1`,[alt.body.nationId]);
+      await db.query('UPDATE cities SET infrastructure=500 WHERE nation_id=$1',[alt.body.nationId]);
+      const r = await api('/api/war/declare',{method:'POST',token,ua:'player-alpha',
+        body:{targetId:alt.body.nationId}});
+      eq(r.status,400);
+      if(!r.body.error.includes('linked')) throw new Error(r.body.error);
+    } finally {
+      if (flagBefore === undefined) delete process.env.ALLOW_LINKED_WARS;
+      else process.env.ALLOW_LINKED_WARS = flagBefore;
+    }
+  });
+
+  await t('ALLOW_LINKED_WARS=true really does open the gate (and is a prod footgun)', async () => {
+    // The other half of the same guard. If this ever stops working the escape
+    // hatch is dead and local testing gets painful; if the test above stops
+    // working, live alt-farming is wide open. Both directions are asserted so
+    // neither can rot unnoticed.
+    const flagBefore = process.env.ALLOW_LINKED_WARS;
+    process.env.ALLOW_LINKED_WARS = 'true';
+    try {
+      const alt2 = await api('/api/auth/register',{method:'POST',body:{
+        email:'alt2@test.com',password:'password123',nationName:'AlphaAlt2',continent:'europe'},
+        ua:'player-alpha'});
+      await db.query(`UPDATE nations SET beige_until_turn = NULL, color='blue' WHERE id=$1`,[alt2.body.nationId]);
+      await db.query('UPDATE cities SET infrastructure=500 WHERE nation_id=$1',[alt2.body.nationId]);
+      const r = await api('/api/war/declare',{method:'POST',token,ua:'player-alpha',
+        body:{targetId:alt2.body.nationId}});
+      if (r.status !== 201) throw new Error('escape hatch did not open: ' + JSON.stringify(r.body));
+    } finally {
+      if (flagBefore === undefined) delete process.env.ALLOW_LINKED_WARS;
+      else process.env.ALLOW_LINKED_WARS = flagBefore;
+    }
   });
   await t('invalid war id gives 400, not 500', async () => {
     const r = await api('/api/war/abc/attack',{method:'POST',token,body:{attackType:'ground_battle'}});
