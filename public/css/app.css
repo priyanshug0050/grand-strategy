@@ -473,6 +473,37 @@ table.market-overview button { padding: .22rem .55rem; font-size: .64rem; }
 .level.ask .p { color: var(--alarm); }
 .level.bid .p { color: var(--verdigris); }
 .level .q, .level .v { font-family: var(--data); position: relative; font-size: .76rem; }
+/* Orders view: one row per resting order, so a fourth column is needed for the
+   nation and the price column stops being the first thing on the row. */
+.bookview {
+  display: flex; gap: 1px; margin-bottom: .5rem;
+  background: var(--line); border: 1px solid var(--line);
+}
+.bookview button {
+  flex: 1; border: 0; border-top: 2px solid transparent; background: var(--panel);
+  font-family: var(--data); font-size: .62rem; letter-spacing: .12em;
+  text-transform: uppercase; padding: .35rem; cursor: pointer; color: var(--chalk-dim);
+}
+.bookview button.active {
+  background: var(--raised); border-top-color: var(--phosphor); color: var(--phosphor);
+}
+.book-head.order,
+.level.order { grid-template-columns: 1.4fr 1fr 1fr .9fr; }
+.book-head.order > :first-child,
+.level.order .who { text-align: left; }
+.level.order .who {
+  position: relative; font-size: .78rem; color: var(--chalk);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.level.order .who em {
+  font-style: normal; font-size: .6rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--brass);
+}
+.level.order .t { font-family: var(--data); position: relative; font-size: .72rem; }
+/* Your own order, so you can find your place in the queue without counting. */
+.level.order.mine { background: rgba(196,154,79,.10); }
+.level.order.mine .who { color: var(--brass); }
+
 .mid {
   font-family: var(--data); font-size: .68rem; color: var(--chalk-dim);
   text-align: center; padding: .5rem; margin: .2rem 0;

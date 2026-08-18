@@ -242,11 +242,18 @@ async function getMarket(resource, nationId) {
     throw new GameError(`${resource} cannot be traded`);
   }
 
+  // The nation name is joined in because the book is public and NAMED. Who is
+  // bidding is part of the market's information, the same way the price is —
+  // see the note on the return value below.
+  const BOOK_SELECT = `SELECT o.*, n.name AS nation_name
+                         FROM market_orders o
+                         JOIN nations n ON n.id = o.nation_id`;
+
   const [buys, sells, trades, mine] = await Promise.all([
-    db.query(`SELECT * FROM market_orders WHERE resource=$1 AND side='buy' AND is_open=TRUE
-              ORDER BY price DESC, created_at ASC LIMIT 100`, [resource]),
-    db.query(`SELECT * FROM market_orders WHERE resource=$1 AND side='sell' AND is_open=TRUE
-              ORDER BY price ASC, created_at ASC LIMIT 100`, [resource]),
+    db.query(`${BOOK_SELECT} WHERE o.resource=$1 AND o.side='buy' AND o.is_open=TRUE
+              ORDER BY o.price DESC, o.created_at ASC LIMIT 100`, [resource]),
+    db.query(`${BOOK_SELECT} WHERE o.resource=$1 AND o.side='sell' AND o.is_open=TRUE
+              ORDER BY o.price ASC, o.created_at ASC LIMIT 100`, [resource]),
     // 200 rows so the chart has real history, not just the last few fills.
     db.query(`SELECT price, quantity, executed_at, turn, flagged FROM trades
               WHERE resource=$1 ORDER BY executed_at DESC LIMIT 200`, [resource]),
@@ -257,6 +264,13 @@ async function getMarket(resource, nationId) {
   ]);
 
   const prices = trades.rows.map(t => db.num(t.price));
+
+  // NOTE the absence of buyer_id and seller_id. The book names who is OFFERING;
+  // a completed trade stays anonymous. Naming both sides of every fill would
+  // turn the trade log into a permanent public record of who supplies whom,
+  // which is a relationship players should have to discover, not read off a
+  // table. The query above does not select them, so they cannot leak by
+  // accident later.
   const tradeList = trades.rows.map(t => ({
     price: db.num(t.price),
     quantity: db.num(t.quantity),
@@ -265,10 +279,24 @@ async function getMarket(resource, nationId) {
     flagged: t.flagged,
   }));
 
+  // Two views of the same orders, both returned every time so the page can
+  // toggle without a second request.
+  //
+  // THE BOOK IS NAMED, AND THAT IS A GAME DECISION, NOT AN OVERSIGHT.
+  // A market where you can see who is buying 10,000 munitions is a market that
+  // leaks war preparation, which is deliberate: it makes trade a place where
+  // players watch each other. It does NOT make espionage redundant — the book
+  // shows FLOWS (what someone is moving right now), espionage shows STOCKS
+  // (what they actually have). It also means alt-farming happens in public,
+  // where other players can see the same pair trading with itself all day.
+  const stamp = (o) => ({ ...o, isMine: nationId ? o.nationId === Number(nationId) : false });
+
   return {
     resource,
     bids: market.aggregateBook(buys.rows, 'buy', 12),
     asks: market.aggregateBook(sells.rows, 'sell', 12),
+    bidOrders: market.orderList(buys.rows, 'buy', 25).map(stamp),
+    askOrders: market.orderList(sells.rows, 'sell', 25).map(stamp),
     ...market.topOfBook(buys.rows, sells.rows),
     medianPrice: market.medianPrice(prices),
 

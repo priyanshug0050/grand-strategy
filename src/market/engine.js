@@ -232,6 +232,41 @@ function aggregateBook(orders, side, levels = 10) {
 }
 
 /**
+ * The same orders, NOT aggregated — one row per resting order, with whoever
+ * placed it attached.
+ *
+ * This is the other half of the toggle on the market page. aggregateBook above
+ * answers "how much is available at each price"; this answers "who is offering
+ * it, and since when". Both are true at once and neither replaces the other,
+ * which is why the page shows one or the other rather than picking for you.
+ *
+ * The sort deliberately matches the matching engine's own order — best price
+ * first, oldest first at equal price. A book that listed orders in a different
+ * order from the one they will actually fill in would be teaching players the
+ * wrong thing about their own queue position.
+ */
+function orderList(orders, side, limit = 25) {
+  const dir = side === 'buy' ? -1 : 1;
+
+  return orders
+    .map(o => ({
+      id: Number(o.id),
+      nationId: Number(o.nation_id),
+      nationName: o.nation_name,
+      price: Number(o.price),
+      quantity: round4(Number(o.quantity) - Number(o.filled || 0)),
+      total: Number(o.quantity),
+      filled: round4(Number(o.filled || 0)),
+      createdAt: o.created_at,
+    }))
+    .filter(o => o.quantity > 0)
+    .sort((a, b) => (a.price - b.price) * dir ||
+                    (new Date(a.createdAt) - new Date(b.createdAt)))
+    .slice(0, limit)
+    .map(o => ({ ...o, value: round2(o.price * o.quantity) }));
+}
+
+/**
  * Best bid, best ask, and the spread between them.
  * A wide spread means an illiquid market — worth surfacing, because it tells a
  * player their order probably will not fill quickly.
@@ -400,6 +435,7 @@ module.exports = {
   matchOrder,
   sortBook,
   aggregateBook,
+  orderList,
   topOfBook,
   isSuspiciousPrice,
   medianPrice,

@@ -244,6 +244,33 @@
   // The book
   // ------------------------------------------------------------------
 
+  /**
+   * Depth or orders. The two answer different questions and neither replaces
+   * the other: depth says how much is available at each price, orders say who
+   * is offering it and since when. Stored so the choice survives switching
+   * resource, which is when it matters most — you pick a view to compare
+   * markets, not to look at one.
+   */
+  let bookView = localStorage.getItem('gs_book_view') === 'orders' ? 'orders' : 'depth';
+
+  function setBookView(v) {
+    bookView = v;
+    localStorage.setItem('gs_book_view', v);
+    renderBook();
+  }
+
+  /** "4h ago" — the age of a resting order matters more than its wall clock. */
+  function age(iso) {
+    const ms = Date.now() - new Date(iso).getTime();
+    if (!Number.isFinite(ms) || ms < 0) return 'just now';
+    const m = Math.floor(ms / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
   function renderBook() {
     renderChart();
     el('bookTitle').textContent = `${Fmt.label(resource)} order book`;
@@ -254,7 +281,9 @@
 
     const maxQty = Math.max(
       ...book.bids.map(b => b.quantity),
-      ...book.asks.map(a => a.quantity), 1);
+      ...book.asks.map(a => a.quantity),
+      ...(book.bidOrders || []).map(b => b.quantity),
+      ...(book.askOrders || []).map(a => a.quantity), 1);
 
     const level = (o, kind) => `
       <div class="level ${kind}" data-price="${o.price}">
@@ -264,15 +293,36 @@
         <span class="v num muted">${Fmt.money(o.value)}</span>
       </div>`;
 
+    // One row per resting order, with whoever placed it. `isMine` is marked so
+    // you can find your own position in the queue without counting.
+    const orderRow = (o, kind) => `
+      <div class="level order ${kind}${o.isMine ? ' mine' : ''}" data-price="${o.price}">
+        <div class="depth" style="width:${(o.quantity / maxQty) * 100}%"></div>
+        <span class="who">${escapeHtml(o.nationName)}${o.isMine ? ' <em>you</em>' : ''}</span>
+        <span class="p num">${Fmt.money(o.price)}</span>
+        <span class="q num">${Fmt.dec(o.quantity, 1)}</span>
+        <span class="t num muted" title="${new Date(o.createdAt).toLocaleString()}">${age(o.createdAt)}</span>
+      </div>`;
+
+    const asks = bookView === 'orders' ? (book.askOrders || []) : book.asks;
+    const bids = bookView === 'orders' ? (book.bidOrders || []) : book.bids;
+    const row = bookView === 'orders' ? orderRow : level;
+
     // Asks descend to the spread, bids descend from it — the classic layout,
     // so the gap between the two sides IS the spread, visually.
     el('book').innerHTML = `
-      <div class="book-head">
-        <span>price</span><span>quantity</span><span>value</span>
+      <div class="bookview">
+        <button data-view="depth"${bookView === 'depth' ? ' class="active"' : ''}>Depth</button>
+        <button data-view="orders"${bookView === 'orders' ? ' class="active"' : ''}>Orders</button>
+      </div>
+      <div class="book-head${bookView === 'orders' ? ' order' : ''}">
+        ${bookView === 'orders'
+          ? '<span>nation</span><span>price</span><span>quantity</span><span>placed</span>'
+          : '<span>price</span><span>quantity</span><span>value</span>'}
       </div>
       <div class="asks">
-        ${book.asks.length
-          ? [...book.asks].reverse().map(a => level(a, 'ask')).join('')
+        ${asks.length
+          ? [...asks].reverse().map(a => row(a, 'ask')).join('')
           : '<p class="empty" style="padding:.6rem">Nobody is selling.</p>'}
       </div>
       <div class="mid">
@@ -281,10 +331,13 @@
           : 'no trades yet'}
       </div>
       <div class="bids">
-        ${book.bids.length
-          ? book.bids.map(b => level(b, 'bid')).join('')
+        ${bids.length
+          ? bids.map(b => row(b, 'bid')).join('')
           : '<p class="empty" style="padding:.6rem">Nobody is buying.</p>'}
       </div>`;
+
+    el('book').querySelectorAll('[data-view]').forEach(btn =>
+      btn.addEventListener('click', (e) => { e.stopPropagation(); setBookView(btn.dataset.view); }));
 
     // Clicking a level fills the price in — the most common action by far.
     el('book').querySelectorAll('[data-price]').forEach(row =>

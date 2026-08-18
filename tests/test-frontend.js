@@ -1078,6 +1078,63 @@ async function cleanup() {
 
   console.log('\n-- Espionage --');
 
+  await t('DANGEROUS PRODUCTION SETTINGS ARE SHOUTED ABOUT AT BOOT', async () => {
+    // Every one of these is a legitimate LOCAL setting, which is exactly why
+    // they get deployed by accident. 30-second turns run a month of economy in
+    // three hours, and ALLOW_LINKED_WARS removes the only thing stopping a
+    // player farming their own alt — both silent, both unrecoverable by then.
+    const server = require('../server');
+    if (typeof server.assertProductionSettings !== 'function') {
+      throw new Error('the production-settings check is not exported');
+    }
+
+    const saved = {
+      linked: process.env.ALLOW_LINKED_WARS,
+      interval: process.env.TURN_INTERVAL_MS,
+      cors: process.env.CORS_ORIGIN,
+    };
+    const lines = [];
+    const realWarn = console.warn;
+    console.warn = (...a) => lines.push(a.join(' '));
+    try {
+      process.env.ALLOW_LINKED_WARS = 'true';
+      process.env.TURN_INTERVAL_MS = '30000';
+      process.env.CORS_ORIGIN = 'http://example.com';
+      server.assertProductionSettings();
+    } finally {
+      console.warn = realWarn;
+      for (const [k, v] of [['ALLOW_LINKED_WARS', saved.linked],
+                            ['TURN_INTERVAL_MS', saved.interval],
+                            ['CORS_ORIGIN', saved.cors]]) {
+        if (v === undefined) delete process.env[k]; else process.env[k] = v;
+      }
+    }
+
+    const text = lines.join('\n');
+    for (const needle of ['ALLOW_LINKED_WARS', 'TURN_INTERVAL_MS', 'CORS_ORIGIN']) {
+      has(text, needle, 'boot warning');
+    }
+
+    // And a correctly configured server says nothing at all, or the warning
+    // becomes background noise that nobody reads.
+    const quiet = [];
+    console.warn = (...a) => quiet.push(a.join(' '));
+    try {
+      delete process.env.ALLOW_LINKED_WARS;
+      delete process.env.TURN_INTERVAL_MS;
+      delete process.env.CORS_ORIGIN;
+      server.assertProductionSettings();
+    } finally {
+      console.warn = realWarn;
+      for (const [k, v] of [['ALLOW_LINKED_WARS', saved.linked],
+                            ['TURN_INTERVAL_MS', saved.interval],
+                            ['CORS_ORIGIN', saved.cors]]) {
+        if (v === undefined) delete process.env[k]; else process.env[k] = v;
+      }
+    }
+    if (quiet.length) throw new Error('a correctly configured server printed a warning: ' + quiet[0]);
+  });
+
   await t('SCHEMA.SQL IS SAFE TO RE-RUN ON A LIVE DATABASE', async () => {
     // It used to throw forty "already exists" errors on a populated database.
     // All of them harmless, all of them indistinguishable from a real failure
@@ -1568,6 +1625,108 @@ async function cleanup() {
       if (r.body[k] === undefined) throw new Error(`book.${k} missing`);
     }
     if (!Array.isArray(r.body.bids)) throw new Error('bids not an array');
+  });
+
+  await t('THE BOOK NAMES WHO IS OFFERING', async () => {
+    // The market is deliberately not anonymous — see the note in
+    // src/market/service.js. If the join is ever dropped the page silently
+    // renders "undefined" for every nation instead of erroring.
+    const money = async (tok) => {
+      const snap = await get('/api/nation', tok);
+      return snap.body.nation;
+    };
+    const me = await money(token), them = await money(otherToken);
+    await db.query(`INSERT INTO nation_resources (nation_id, resource, amount)
+                    VALUES ($1,'coal',500), ($2,'coal',500)
+                    ON CONFLICT (nation_id, resource) DO UPDATE SET amount = 500`,
+                   [me.id, them.id]);
+
+    // Two nations resting at the SAME price — the case the depth view hides.
+    const place = (tok, side, price, quantity) => fetch(BASE + '/api/market/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+      body: JSON.stringify({ resource: 'coal', side, price, quantity }),
+    }).then(r => r.json());
+
+    await place(token, 'sell', 999, 40);
+    await place(otherToken, 'sell', 999, 25);
+
+    const r = await get('/api/market/coal', token);
+    if (!Array.isArray(r.body.askOrders)) throw new Error('askOrders missing — the orders view has nothing to render');
+
+    const at999 = r.body.askOrders.filter(o => o.price === 999);
+    if (at999.length !== 2) throw new Error(`expected 2 orders at 999, got ${at999.length}`);
+    for (const o of at999) {
+      if (!o.nationName) throw new Error('an order has no nation name');
+      if (!o.createdAt) throw new Error('an order has no placed time');
+    }
+
+    const mine = at999.filter(o => o.isMine);
+    if (mine.length !== 1) throw new Error(`isMine marked ${mine.length} of my own orders, expected 1`);
+    if (mine[0].nationName !== me.name) throw new Error('isMine is on the wrong order');
+  });
+
+  await t('DEPTH AND ORDERS NEVER DISAGREE', async () => {
+    // Two views of the same rows. If they can drift, one of them is lying to
+    // the player about how much is really available at a price.
+    const r = await get('/api/market/coal', token);
+    for (const [levels, orders, name] of [[r.body.asks, r.body.askOrders, 'ask'],
+                                          [r.body.bids, r.body.bidOrders, 'bid']]) {
+      for (const lvl of levels) {
+        const sum = orders.filter(o => o.price === lvl.price)
+                          .reduce((a, o) => a + o.quantity, 0);
+        // The orders list is capped, so only check levels it fully covers.
+        if (orders.length < 25 && Math.abs(sum - lvl.quantity) > 0.001) {
+          throw new Error(`${name} at ${lvl.price}: depth says ${lvl.quantity}, orders sum to ${sum}`);
+        }
+      }
+    }
+  });
+
+  await t('ORDERS ARE LISTED IN THE ORDER THEY WILL ACTUALLY FILL', async () => {
+    // Price first, then oldest first — the matching engine's own priority. A
+    // book sorted any other way teaches players the wrong thing about their
+    // own place in the queue.
+    const r = await get('/api/market/coal', token);
+    const check = (orders, dir, name) => {
+      for (let i = 1; i < orders.length; i++) {
+        const a = orders[i - 1], b = orders[i];
+        const better = (a.price - b.price) * dir;
+        if (better > 0) throw new Error(`${name} out of price order at ${i}`);
+        if (better === 0 && new Date(a.createdAt) > new Date(b.createdAt)) {
+          throw new Error(`${name}: at equal price ${a.price} a newer order is ahead of an older one`);
+        }
+      }
+    };
+    check(r.body.askOrders, 1, 'asks');
+    check(r.body.bidOrders, -1, 'bids');
+  });
+
+  await t('COMPLETED TRADES STAY ANONYMOUS', async () => {
+    // The book names who is OFFERING; a finished trade does not name either
+    // side. Naming both would turn the trade log into a permanent public record
+    // of who supplies whom — something players should have to find out.
+    const r = await get('/api/market/coal', token);
+    for (const trade of r.body.recentTrades) {
+      for (const leak of ['buyerId', 'sellerId', 'buyer_id', 'seller_id',
+                          'buyerName', 'sellerName', 'nationName']) {
+        if (trade[leak] !== undefined) throw new Error(`a trade leaks ${leak}`);
+      }
+    }
+    const js = await get('/js/market.js');
+    if (/renderTrades[\s\S]{0,900}nationName/.test(js.body)) {
+      throw new Error('the trades table renders a nation name');
+    }
+  });
+
+  await t('the book can be switched between depth and orders', async () => {
+    const r = await get('/js/market.js');
+    has(r.body, 'data-view', 'market.js');
+    has(r.body, 'bookView', 'market.js');
+    has(r.body, 'askOrders', 'market.js');
+    const css = await get('/css/app.css');
+    has(css.body, '.bookview', 'app.css');
+    has(css.body, '.level.order', 'app.css');
   });
 
   await t('MAKER PRICE WINS: bid above the ask pays the ask', async () => {
