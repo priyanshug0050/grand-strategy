@@ -47,9 +47,33 @@
   }
 
   const VICTORY = ['Utter Failure', 'Pyrrhic Victory', 'Moderate Success', 'Immense Triumph'];
+  const LAUNCHES = ['missile_launch', 'nuclear_attack'];
+
+  /**
+   * A launch has no victory tier. It is stored as 3/0 because battles.victory_type
+   * is NOT NULL, but calling an arrived missile an "Immense Triumph" would be
+   * describing a contest that never happened.
+   */
+  function battleResult(b) {
+    if (LAUNCHES.includes(b.attack_type)) {
+      return b.victoryType > 0 ? 'landed' : 'intercepted';
+    }
+    return VICTORY[b.victoryType];
+  }
+
+  /**
+   * A white peace is not a loss and must never be shown as one. Both offers
+   * still standing on an ended war is the signature of one: it is the only way
+   * a war ends with a winner of nobody and an agreement on both sides.
+   */
+  function isWhitePeace(w) {
+    return !w.active && w.winner_id === null &&
+           w.attacker_peace_offer && w.defender_peace_offer;
+  }
 
   function outcome(w) {
     if (w.active) return { label: 'ongoing', cls: '' };
+    if (isWhitePeace(w)) return { label: 'white peace', cls: 'muted' };
     if (w.winner_id === null) return { label: 'ended, no winner', cls: 'muted' };
     const won = Number(w.winner_id) === me.id;
     return { label: won ? 'won' : 'lost', cls: won ? 'good' : 'bad' };
@@ -63,6 +87,7 @@
     const finished = wars.filter(w => !w.active);
     const won = finished.filter(w => Number(w.winner_id) === me.id).length;
     const lost = finished.filter(w => w.winner_id !== null && Number(w.winner_id) !== me.id).length;
+    const drawn = finished.filter(isWhitePeace).length;
     const active = wars.filter(w => w.active).length;
     const offensive = wars.filter(w => w.youAttacked).length;
 
@@ -73,6 +98,7 @@
           <tr><td data-label="Metric">Active</td><td data-label="Value" class="num">${active}</td></tr>
           <tr><td data-label="Metric">Won</td><td data-label="Value" class="num ${won ? 'good' : ''}">${won}</td></tr>
           <tr><td data-label="Metric">Lost</td><td data-label="Value" class="num ${lost ? 'bad' : ''}">${lost}</td></tr>
+          <tr><td data-label="Metric">White peace</td><td data-label="Value" class="num">${drawn}</td></tr>
           <tr><td data-label="Metric">You declared</td><td data-label="Value" class="num">${offensive}</td></tr>
           <tr><td data-label="Metric">Declared on you</td><td data-label="Value" class="num">${wars.length - offensive}</td></tr>
         </tbody></table>`;
@@ -142,13 +168,15 @@
               <td data-label="Turn" class="num">${b.turn}</td>
               <td data-label="Attack">${Fmt.label(b.attack_type)}</td>
               <td data-label="By">${mine ? 'you' : 'them'}</td>
-              <td data-label="Result" class="${mine === (b.victoryType > 0) ? 'good' : 'bad'}">${VICTORY[b.victoryType]}</td>
+              <td data-label="Result" class="${mine === (b.victoryType > 0) ? 'good' : 'bad'}">${battleResult(b)}</td>
               <td data-label="Infra" class="num">${Fmt.dec(b.infra_destroyed, 2)}</td>
               <td data-label="Loot" class="num">${Fmt.money(b.loot)}</td>
               <td data-label="Seed" class="num muted" style="font-size:.68rem;">${escapeHtml(b.rngSeed || '—')}</td>
-              <td data-label="">${b.replayable
-                ? `<button data-verify="${b.id}" id="v-${b.id}">Replay</button>`
-                : '<span class="muted">—</span>'}</td>
+              <td data-label="">${LAUNCHES.includes(b.attack_type)
+                ? '<span class="muted" title="A launch is not a contest — there are no rolls to reproduce">no rolls</span>'
+                : b.replayable
+                  ? `<button data-verify="${b.id}" id="v-${b.id}">Replay</button>`
+                  : '<span class="muted">—</span>'}</td>
             </tr>`;
           }).join('')}
         </tbody>

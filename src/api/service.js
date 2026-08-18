@@ -614,6 +614,23 @@ async function attack(nationId, warId, attackType, opts = {}) {
       case 'ground_battle': result = combat.groundBattle(params); break;
       case 'airstrike': result = combat.airStrike(params); break;
       case 'naval_battle': result = combat.navalBattle(params); break;
+
+      // Launches take a different shape because they are a different thing.
+      // No armies meet, so there is no supply, no army value and no roll —
+      // only the attacker's stockpile of weapons and the defender's projects.
+      case 'missile_launch':
+      case 'nuclear_attack': {
+        const launchParams = {
+          attacker: { units: me.units, projects: me.projects || [] },
+          defender: { cities: them.cities, projects: them.projects || [] },
+          opts: { currentMap: me.map, rng: combat.makeRng(seed) },
+        };
+        result = attackType === 'nuclear_attack'
+          ? combat.nuclearAttack(launchParams)
+          : combat.missileStrike(launchParams);
+        break;
+      }
+
       default: throw new GameError(`Unknown attack type: ${attackType}`);
     }
     if (!result.ok) throw new GameError(result.reason);
@@ -634,6 +651,11 @@ async function attack(nationId, warId, attackType, opts = {}) {
       them.units[unit] = Math.max((them.units[unit] || 0) - lost, 0);
     }
 
+    // A launched weapon is spent whether it landed or was shot down.
+    for (const [unit, spent] of Object.entries(result.consumed || {})) {
+      me.units[unit] = Math.max((me.units[unit] || 0) - spent, 0);
+    }
+
     if (result.loot > 0) {
       const looted = Math.min(result.loot, them.money);
       them.money -= looted;
@@ -649,6 +671,10 @@ async function attack(nationId, warId, attackType, opts = {}) {
         if (result.improvementDestroyed && targetCity.improvements[result.improvementDestroyed] > 0) {
           targetCity.improvements[result.improvementDestroyed] -= 1;
         }
+        // A nuclear strike takes several buildings, not one.
+        for (const key of result.improvementsDestroyed || []) {
+          if (targetCity.improvements[key] > 0) targetCity.improvements[key] -= 1;
+        }
         await repo.saveCity(tx, targetCity);
       }
     }
@@ -663,12 +689,37 @@ async function attack(nationId, warId, attackType, opts = {}) {
 
     const updates = [`${resistColumn} = $2`];
     const values = [warId, applied.resistance];
-    if (result.control.gained) { updates.push(`${myControlCol} = $${values.length + 1}`); values.push(result.control.gained); }
-    if (result.control.nullified) { updates.push(`${theirControlCol} = NULL`); }
+    // A launch grants and nullifies nothing — there was no engagement to win.
+    if (result.control?.gained) { updates.push(`${myControlCol} = $${values.length + 1}`); values.push(result.control.gained); }
+    if (result.control?.nullified) { updates.push(`${theirControlCol} = NULL`); }
     // Fortification ends the moment you attack.
     updates.push(`${isAttacker ? 'attacker_fortified' : 'defender_fortified'} = FALSE`);
 
+    // So does your offer of peace. Suing for peace while still attacking is
+    // incoherent, and without this it is a trap: leave the offer standing, wait
+    // for them to accept, and keep hitting them in the meantime.
+    updates.push(`${isAttacker ? 'attacker_peace_offer' : 'defender_peace_offer'} = FALSE`);
+
     await tx.query(`UPDATE wars SET ${updates.join(', ')} WHERE id = $1`, values);
+
+    // ---- Radiation -------------------------------------------------------
+    // The only consequence in the game that lands on nations who were not
+    // consulted. It is applied to the continent the bomb fell on AND to the
+    // world, so a nuclear exchange between two players is felt by everyone.
+    if (result.radiation) {
+      if (result.radiation.continent) {
+        await tx.query(
+          `INSERT INTO continent_radiation (continent, radiation) VALUES ($1, $2)
+           ON CONFLICT (continent) DO UPDATE
+             SET radiation = continent_radiation.radiation + EXCLUDED.radiation`,
+          [result.radiation.continent, result.radiation.continentAmount]
+        );
+      }
+      await tx.query(
+        'UPDATE game_state SET world_radiation = world_radiation + $1 WHERE id = 1',
+        [result.radiation.worldAmount]
+      );
+    }
 
     // ---- Record the battle, seed included ----
     await tx.query(
@@ -677,10 +728,19 @@ async function attack(nationId, warId, attackType, opts = {}) {
          attacker_value, defender_value, infra_destroyed, loot, resistance_loss,
          target_city_id, attacker_casualties, defender_casualties, turn)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-      [warId, nationId, attackType, result.victoryType, seed,
-       result.attackerValue, result.defenderValue, result.infraDestroyed, result.loot,
+      // A launch has no victory type. battles.victory_type is NOT NULL with a
+      // 0-3 CHECK, so it is recorded as 3 when the weapon landed and 0 when it
+      // was intercepted. The history page reads attack_type and labels those
+      // rows "landed"/"intercepted" rather than pretending they were rolls, and
+      // the replay route refuses to re-roll them.
+      [warId, nationId, attackType,
+       result.victoryType !== undefined ? result.victoryType : (result.intercepted ? 0 : 3),
+       seed,
+       result.attackerValue || 0, result.defenderValue || 0,
+       result.infraDestroyed, result.loot || 0,
        result.resistanceLoss, targetCity?.id || null,
-       JSON.stringify(result.attackerCasualties), JSON.stringify(result.defenderCasualties), gs.turn]
+       JSON.stringify(result.attackerCasualties || {}),
+       JSON.stringify(result.defenderCasualties || {}), gs.turn]
     );
 
     // ---- Victory ----
@@ -1504,6 +1564,9 @@ async function getWars(nationId) {
 
         iAmFortified: isAttacker ? w.attacker_fortified : w.defender_fortified,
         theyAreFortified: isAttacker ? w.defender_fortified : w.attacker_fortified,
+
+        iOfferedPeace: isAttacker ? w.attacker_peace_offer : w.defender_peace_offer,
+        theyOfferedPeace: isAttacker ? w.defender_peace_offer : w.attacker_peace_offer,
       };
     }),
   };
@@ -1815,6 +1878,89 @@ async function getEspionageLog(nationId, limit = 40) {
   };
 }
 
+/**
+ * Offer peace, or withdraw the offer.
+ *
+ * Modelled as one flag per side rather than an offer-and-accept pair, because
+ * they are the same thing: when both flags are true, both sides have said yes.
+ * That removes a "pending acceptance" state which can get stuck when the other
+ * player stops logging in, and it means accepting is literally the same action
+ * as offering — one endpoint, one code path.
+ *
+ * WHITE PEACE ONLY. The war ends, nobody won, nothing changes hands, and there
+ * is no beige — beige exists to protect a nation that was BEATEN, and nobody
+ * was. Terms belong with alliances, when there is someone to negotiate for you.
+ *
+ * Either side may offer. A stronger nation can therefore refuse forever and
+ * keep a weaker one pinned — that is a real cost of this design, and the
+ * alternative (peace you cannot refuse) is worse: it turns every war you are
+ * losing into one you can simply walk out of, which makes declaring one
+ * meaningless.
+ */
+async function offerPeace(nationId, warId, withdraw = false) {
+  return db.withTransaction(async (tx) => {
+    const { rows: warRows } = await tx.query(
+      'SELECT * FROM wars WHERE id = $1 AND ended_turn IS NULL', [warId]
+    );
+    if (warRows.length === 0) throw new GameError('War not found or already ended');
+    const war = warRows[0];
+
+    const isAttacker = Number(war.attacker_id) === Number(nationId);
+    const isDefender = Number(war.defender_id) === Number(nationId);
+    if (!isAttacker && !isDefender) throw new GameError('You are not a participant in this war');
+
+    const mine = isAttacker ? 'attacker_peace_offer' : 'defender_peace_offer';
+    const theirs = isAttacker ? 'defender_peace_offer' : 'attacker_peace_offer';
+    const opponentId = isAttacker ? Number(war.defender_id) : Number(war.attacker_id);
+
+    const gs = await repo.loadGameState(tx);
+
+    // ---- Withdraw --------------------------------------------------------
+    if (withdraw) {
+      if (!war[mine]) throw new GameError('You have no peace offer to withdraw');
+      await tx.query(`UPDATE wars SET ${mine} = FALSE WHERE id = $1`, [warId]);
+      await repo.recordEvents(tx, opponentId, [{
+        turn: gs.turn, type: 'peace_withdrawn',
+        message: 'Your opponent has withdrawn their offer of peace.',
+      }]);
+      return { ok: true, warId: Number(warId), youOffered: false, theyOffered: war[theirs], peace: false };
+    }
+
+    if (war[mine]) throw new GameError('You have already offered peace in this war');
+
+    // ---- Offer -----------------------------------------------------------
+    await tx.query(`UPDATE wars SET ${mine} = TRUE WHERE id = $1`, [warId]);
+
+    // Not mutual yet — it is only an offer.
+    if (!war[theirs]) {
+      await repo.recordEvents(tx, opponentId, [{
+        turn: gs.turn, type: 'peace_offered',
+        message: 'Your opponent has offered peace. Offer peace yourself to end the war.',
+      }]);
+      return { ok: true, warId: Number(warId), youOffered: true, theyOffered: false, peace: false };
+    }
+
+    // ---- Both sides have agreed — the war ends ---------------------------
+    // winner_id stays NULL. Nobody won, so nothing reads as a defeat: no loot,
+    // no infrastructure loss, and critically no beige. Recording a white peace
+    // as a loss would hand the other side a protection they did not earn and
+    // stain a record that should show a draw.
+    await tx.query(
+      'UPDATE wars SET ended_turn = $2, winner_id = NULL WHERE id = $1',
+      [warId, gs.turn]
+    );
+
+    for (const id of [Number(nationId), opponentId]) {
+      await repo.recordEvents(tx, id, [{
+        turn: gs.turn, type: 'peace_agreed',
+        message: 'The war has ended in a white peace. Neither side won; nothing changed hands.',
+      }]);
+    }
+
+    return { ok: true, warId: Number(warId), youOffered: true, theyOffered: true, peace: true };
+  });
+}
+
 module.exports = {
   GameError,
   getSnapshot,
@@ -1839,6 +1985,7 @@ module.exports = {
   declareWar,
   attack,
   fortify,
+  offerPeace,
   getWars,
   getEspionage,
   trainSpies,

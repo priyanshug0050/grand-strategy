@@ -848,7 +848,273 @@ async function cleanup() {
     has(r.body, 'data-fortify', 'military.js');
   });
 
+  console.log('\n-- War card: peace --');
+
+  await t('PEACE IS PARTICIPANTS ONLY', async () => {
+    if (!warId) throw new Error('war setup failed — cannot check access control');
+    const res = await fetch(`${BASE}/api/war/${warId}/peace`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + outsiderToken },
+    });
+    if (res.status === 200) throw new Error('an outsider offered peace in a war it is not in');
+  });
+
+  await t('AN OFFER IS NOT AN ARMISTICE — one side alone changes nothing', async () => {
+    // The whole point of requiring both signatures is that a losing nation
+    // cannot walk away by announcing it is done. Until the other side agrees
+    // the war is still running and can still be attacked.
+    if (!warId) throw new Error('war setup failed — cannot check peace');
+    const res = await fetch(`${BASE}/api/war/${warId}/peace`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token },
+    });
+    const body = await res.json();
+    eq(res.status, 200, body.error);
+    eq(body.peace, false, 'a single offer ended the war:');
+
+    const mine = await get('/api/wars', token);
+    const w = mine.body.wars.find(x => x.id === warId);
+    if (!w) throw new Error('the war vanished on a one-sided offer');
+    if (!w.iOfferedPeace) throw new Error('my own offer is not reported back to me');
+
+    // And the opponent has to be able to SEE it, or there is nothing to accept.
+    const theirs = await get('/api/wars', otherToken);
+    const tw = theirs.body.wars.find(x => x.id === warId);
+    if (!tw.theyOfferedPeace) throw new Error('the opponent cannot see the offer');
+    if (tw.iOfferedPeace) throw new Error('the opponent was credited with an offer it never made');
+  });
+
+  await t('offering twice is refused, not silently repeated', async () => {
+    if (!warId) throw new Error('war setup failed');
+    const res = await fetch(`${BASE}/api/war/${warId}/peace`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token },
+    });
+    if (res.status === 200) throw new Error('a second offer was accepted');
+  });
+
+  await t('ATTACKING WITHDRAWS YOUR OWN OFFER', async () => {
+    // Suing for peace and then hitting them anyway is the one thing this
+    // system must never let you do. The offer is a standing promise, so the
+    // attack has to cancel it rather than leaving it on the table.
+    if (!warId) throw new Error('war setup failed');
+    const meSnap = await get('/api/nation', token);
+    await db.query('UPDATE nations SET map_points = 12 WHERE id = $1', [meSnap.body.nation.id]);
+
+    const res = await fetch(`${BASE}/api/war/${warId}/attack`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ attackType: 'ground_battle' }),
+    });
+    if (res.status !== 200) {
+      const b = await res.json();
+      throw new Error('attack failed, cannot check: ' + (b.error || res.status));
+    }
+
+    const after = await get('/api/wars', token);
+    const w = after.body.wars.find(x => x.id === warId);
+    if (!w) throw new Error('the attack ended the war — cannot check the offer');
+    if (w.iOfferedPeace) throw new Error('attacked while still offering peace');
+
+    const theirs = await get('/api/wars', otherToken);
+    const tw = theirs.body.wars.find(x => x.id === warId);
+    if (tw.theyOfferedPeace) throw new Error('the opponent still sees a withdrawn offer');
+  });
+
+  await t('WITHDRAW takes the offer back, and only if there is one', async () => {
+    if (!warId) throw new Error('war setup failed');
+    const gone = await fetch(`${BASE}/api/war/${warId}/peace`, {
+      method: 'DELETE', headers: { Authorization: 'Bearer ' + token },
+    });
+    if (gone.status === 200) throw new Error('withdrew an offer that does not exist');
+
+    const made = await fetch(`${BASE}/api/war/${warId}/peace`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token },
+    });
+    eq(made.status, 200, 'offer:');
+
+    const pulled = await fetch(`${BASE}/api/war/${warId}/peace`, {
+      method: 'DELETE', headers: { Authorization: 'Bearer ' + token },
+    });
+    eq(pulled.status, 200, 'withdraw:');
+
+    const after = await get('/api/wars', token);
+    const w = after.body.wars.find(x => x.id === warId);
+    if (w.iOfferedPeace) throw new Error('withdraw did not clear the offer');
+  });
+
+  await t('BOTH OFFERS END THE WAR — no winner, no loot, no beige', async () => {
+    // A white peace is a draw. Recording it as a defeat would hand the other
+    // side a beige protection it never earned and stain a record that should
+    // show neither side won.
+    if (!warId) throw new Error('war setup failed');
+    const meSnap = await get('/api/nation', token);
+    const themSnap = await get('/api/nation', otherToken);
+    const myId = meSnap.body.nation.id, theirId = themSnap.body.nation.id;
+
+    await db.query('UPDATE nations SET beige_until_turn = NULL WHERE id = ANY($1)', [[myId, theirId]]);
+    const moneyBefore = Number(meSnap.body.nation.money);
+
+    const a = await fetch(`${BASE}/api/war/${warId}/peace`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token },
+    });
+    eq(a.status, 200, 'first offer:');
+    eq((await a.json()).peace, false, 'one offer is not peace:');
+
+    const b = await fetch(`${BASE}/api/war/${warId}/peace`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + otherToken },
+    });
+    const bBody = await b.json();
+    eq(b.status, 200, 'second offer:');
+    eq(bBody.peace, true, 'both sides offered and the war did not end:');
+
+    const { rows } = await db.query('SELECT * FROM wars WHERE id = $1', [warId]);
+    if (rows[0].ended_turn === null) throw new Error('the war is still open in the database');
+    if (rows[0].winner_id !== null) throw new Error('a white peace recorded a winner');
+
+    const { rows: nations } = await db.query(
+      'SELECT id, beige_until_turn, money FROM nations WHERE id = ANY($1)', [[myId, theirId]]
+    );
+    for (const n of nations) {
+      if (n.beige_until_turn !== null) throw new Error(`nation ${n.id} was beiged by a white peace`);
+    }
+    const meAfter = nations.find(n => Number(n.id) === Number(myId));
+    if (Math.abs(Number(meAfter.money) - moneyBefore) > 0.01) {
+      throw new Error('money moved in a white peace — nothing should change hands');
+    }
+
+    const open = await get('/api/wars', token);
+    if (open.body.wars.some(x => x.id === warId)) throw new Error('an ended war is still listed as active');
+  });
+
+  await t('a war that has already ended cannot be peaced again', async () => {
+    if (!warId) throw new Error('war setup failed');
+    const res = await fetch(`${BASE}/api/war/${warId}/peace`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token },
+    });
+    if (res.status === 200) throw new Error('offered peace in a war that is over');
+  });
+
+  await t('HISTORY SHOWS A WHITE PEACE AS A DRAW, NOT A DEFEAT', async () => {
+    // history.js decides won/lost/drawn from the war row. If the peace-offer
+    // columns stop being sent, every white peace silently reads as "ended, no
+    // winner" — indistinguishable from a war an admin cancelled.
+    const hist = await get('/api/war-history', token);
+    const w = hist.body.wars.find(x => x.id === warId);
+    if (!w) throw new Error('the peaced war is missing from history');
+    if (w.winner_id !== null) throw new Error('history records a winner for a white peace');
+    if (!w.attacker_peace_offer || !w.defender_peace_offer) {
+      throw new Error('history does not carry the peace offers — the page cannot tell a draw from a cancellation');
+    }
+    const js = await get('/js/history.js');
+    has(js.body, 'isWhitePeace', 'history.js');
+    has(js.body, 'white peace', 'history.js');
+  });
+
+  await t('the war card offers peace, and says what it costs', async () => {
+    const r = await get('/js/military.js');
+    has(r.body, 'data-peace', 'military.js');
+    has(r.body, 'data-unpeace', 'military.js');
+    has(r.body, 'theyOfferedPeace', 'military.js');
+    const api = await get('/js/api.js');
+    has(api.body, 'offerPeace', 'api.js');
+    has(api.body, 'withdrawPeace', 'api.js');
+  });
+
+  console.log('\n-- Missiles and nuclear weapons --');
+
+  await t('A LAUNCH IS NOT REPLAYED — there are no rolls to reproduce', async () => {
+    // Feeding a launch through rollBattle would manufacture a verdict out of
+    // two zeroes and then report it as "verified", which is worse than saying
+    // the question does not apply.
+    const hist = await get('/api/war-history', token);
+    if (hist.body.wars.length === 0) return;
+    const battles = await get(`/api/war/${hist.body.wars[0].id}/battles`, token);
+    const launch = battles.body.battles.find(b =>
+      ['missile_launch', 'nuclear_attack'].includes(b.attack_type));
+    if (!launch) return;                       // no launch fought in this run
+
+    const r = await get(`/api/battle/${launch.id}`, token);
+    eq(r.status, 200);
+    if (r.body.verified !== null) throw new Error('a launch reported a replay verdict');
+    if (r.body.replay !== null) throw new Error('a launch was re-rolled');
+    if (!r.body.reason) throw new Error('no explanation given for skipping the replay');
+  });
+
+  await t('MISSILES AND NUKES CAN BE BUILT FROM THE PAGE', async () => {
+    // They were absent from the recruit list, so the only way to build one was
+    // to call the API by hand. The projects, the costs, the score and the whole
+    // launch mechanic existed with no route to the weapon itself.
+    const r = await get('/js/military.js');
+    has(r.body, "'missiles'", 'military.js');
+    has(r.body, "'nukes'", 'military.js');
+    has(r.body, 'requiresProject', 'military.js');   // locked units name their project
+  });
+
+  await t('reference carries the build rate the page shows', async () => {
+    const C = require('../src/engine/constants');
+    const r = await get('/api/reference');
+    for (const unit of ['missiles', 'nukes']) {
+      if (r.body.units[unit].perDay === undefined) {
+        throw new Error(`${unit} has no perDay in reference — the page cannot show the rate`);
+      }
+      eq(r.body.units[unit].perDay, C.UNITS[unit].perDay, `${unit} rate:`);
+    }
+  });
+
+  await t('the war card offers launches, and never claims to know their intercept chance', async () => {
+    // You do not know which defence projects they have bought. Showing a
+    // number would be inventing information Gather Intelligence exists to sell.
+    const r = await get('/js/military.js');
+    has(r.body, 'data-launch', 'military.js');
+    has(r.body, 'nuclear_attack', 'military.js');
+    if (/interceptChance/.test(r.body)) {
+      throw new Error('military.js displays an intercept chance it cannot know');
+    }
+  });
+
+  await t('history labels a launch as landed or intercepted, not as a victory tier', async () => {
+    const r = await get('/js/history.js');
+    has(r.body, 'intercepted', 'history.js');
+    has(r.body, 'battleResult', 'history.js');
+  });
+
   console.log('\n-- Espionage --');
+
+  await t('SCHEMA.SQL IS SAFE TO RE-RUN ON A LIVE DATABASE', async () => {
+    // It used to throw forty "already exists" errors on a populated database.
+    // All of them harmless, all of them indistinguishable from a real failure
+    // — which is how a migration ends up being one people are afraid to run.
+    const sql = require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'db', 'schema.sql'), 'utf8');
+
+    const bad = sql.split('\n')
+      .map((line, i) => [i + 1, line.trim()])
+      .filter(([, l]) =>
+        (/^CREATE TABLE /i.test(l) && !/^CREATE TABLE IF NOT EXISTS /i.test(l)) ||
+        (/^CREATE INDEX /i.test(l) && !/^CREATE INDEX IF NOT EXISTS /i.test(l)));
+    if (bad.length) {
+      throw new Error('not re-runnable, needs IF NOT EXISTS: ' +
+        bad.map(([n, l]) => `line ${n}: ${l.slice(0, 50)}`).join('; '));
+    }
+
+    // The seed row would violate the primary key on a second run.
+    if (!/INSERT INTO game_state[\s\S]*?ON CONFLICT/i.test(sql)) {
+      throw new Error('the game_state seed row has no ON CONFLICT clause');
+    }
+
+    // Views cannot use IF NOT EXISTS meaningfully — a stale one would survive
+    // and quietly serve an old definition — so they are dropped and rebuilt.
+    for (const view of ['linked_nations', 'suspected_links', 'nation_summary']) {
+      if (!sql.includes(`DROP VIEW IF EXISTS ${view}`)) {
+        throw new Error(`view ${view} is not dropped before it is recreated`);
+      }
+    }
+
+    // And it actually runs, twice, against the live test database.
+    await db.query(sql);
+    await db.query(sql);
+
+    const { rows } = await db.query('SELECT count(*)::int AS n FROM game_state');
+    eq(rows[0].n, 1, 'game_state rows after two runs:');
+  });
 
   await t('THE SERVER REFUSES TO BOOT ON AN OUT-OF-DATE DATABASE', async () => {
     // The migration for espionage_ops.result is IF NOT EXISTS, which makes it

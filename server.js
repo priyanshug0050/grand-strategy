@@ -366,6 +366,21 @@ app.post('/api/war/:warId/fortify', protect, touchActivity, wrap(async (req, res
 }));
 
 /**
+ * Offer peace, or withdraw the offer.
+ *
+ * There is no separate "accept" — accepting IS offering. When both sides have
+ * an offer standing the war ends, which removes a pending state that could get
+ * stuck when the other player stops logging in.
+ */
+app.post('/api/war/:warId/peace', protect, touchActivity, wrap(async (req, res) => {
+  res.json(await service.offerPeace(req.nationId, req.params.warId, false));
+}));
+
+app.delete('/api/war/:warId/peace', protect, touchActivity, wrap(async (req, res) => {
+  res.json(await service.offerPeace(req.nationId, req.params.warId, true));
+}));
+
+/**
  * Replay a battle from its stored seed.
  *
  * This is why rng_seed is a column. A player who thinks the game cheated can
@@ -376,6 +391,20 @@ app.get('/api/battle/:battleId', protect, wrap(async (req, res) => {
   if (rows.length === 0) return res.status(404).json({ error: 'Battle not found' });
 
   const b = rows[0];
+
+  // Missiles and nuclear strikes do not roll, so there is nothing to re-roll.
+  // Feeding them through rollBattle would manufacture a verdict out of two
+  // zeroes and then report it as "verified", which is worse than saying the
+  // question does not apply.
+  if (b.attack_type === 'missile_launch' || b.attack_type === 'nuclear_attack') {
+    return res.json({
+      battle: b,
+      replay: null,
+      verified: null,
+      reason: 'A launch is not a contest — it either arrives or is intercepted, so there are no rolls to reproduce.',
+    });
+  }
+
   const combat = require('./src/engine/combat');
   const replay = combat.rollBattle(
     db.num(b.attacker_value), db.num(b.defender_value), combat.makeRng(Number(b.rng_seed))
@@ -531,6 +560,7 @@ const REQUIRED_COLUMNS = [
   ['users', 'is_admin'],
   ['espionage_ops', 'result'],
   ['wars', 'attacker_fortified'],
+  ['wars', 'attacker_peace_offer'],
 ];
 
 async function assertSchemaIsCurrent() {

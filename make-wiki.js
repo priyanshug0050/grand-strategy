@@ -760,6 +760,41 @@ ${formula(
 ${formula(`cap = cityInfrastructure * ${M.INFRA_DAMAGE_CAP_FRACTION} + ${M.INFRA_DAMAGE_CAP_CONSTANT}`,
 'Per battle, per city. No city can be destroyed in a single hit — this is what makes wars multi-day affairs.')}
 <p>The attack always targets your <strong>highest-infrastructure city</strong>. Airstrikes aimed at anything other than infrastructure deal ${num(M.AIRSTRIKE_NON_INFRA_MULTIPLIER * 100, 0)}% collateral damage to it. On an Immense Triumph there is a <strong>${M.IMPROVEMENT_DESTROY_CHANCE * 100}% chance</strong> per battle of destroying an improvement outright.</p>
+<h3>Missiles and nuclear weapons</h3>
+<p><strong>Neither of these rolls.</strong> The three-roll system exists because two armies MEET — each commits a random fraction of its strength and the better commitment wins. Nothing meets a missile. Rolling for it would borrow a mechanic from a situation that is not happening, and would make the most expensive weapon in the game the least reliable one.</p>
+<p>A launch either arrives or is intercepted, and interception is a property of the defender's projects rather than a contest.</p>
+${table(['Weapon', 'Action points', 'Infrastructure destroyed', 'Buildings', 'Resistance', 'Intercepted by'], [
+  ['Missile', String(C.COMBAT.MAP_COST.missile_launch),
+   `${num(C.COMBAT.MISSILE.INFRA_FRACTION * 100)}% of the city + ${num(C.COMBAT.MISSILE.INFRA_FLAT)}`,
+   C.COMBAT.MISSILE.IMPROVEMENTS_DESTROYED ? String(C.COMBAT.MISSILE.IMPROVEMENTS_DESTROYED) : '<span class="dim">none</span>',
+   String(C.COMBAT.RESISTANCE_LOSS.missile_launch),
+   `Iron Dome (${C.PROJECTS.iron_dome.effect.missileInterceptChance * 100}%)`],
+  ['Nuclear strike', String(C.COMBAT.MAP_COST.nuclear_attack),
+   `${num(C.COMBAT.NUKE.INFRA_FRACTION * 100)}% of the city + ${num(C.COMBAT.NUKE.INFRA_FLAT)}`,
+   String(C.COMBAT.NUKE.IMPROVEMENTS_DESTROYED),
+   String(C.COMBAT.RESISTANCE_LOSS.nuclear_attack),
+   `Vital Defense System (${C.PROJECTS.vital_defense_system.effect.nukeInterceptChance * 100}%)`],
+])}
+${note('The weapon is spent even when it is shot down', 'If interception refunded the missile, the defence project would buy delay rather than safety and the attacker would simply fire again next turn at no cost. Iron Dome and the Vital Defense System stop the damage, not the expense.', 'trap')}
+<h3>Building them</h3>
+<p>A missile needs the <strong>Missile Launch Pad</strong> project; a nuclear weapon needs the <strong>Nuclear Research Facility</strong>. Neither uses a recruitment building — the project itself is the gate.</p>
+${table(['Weapon', 'Cost each', 'Built per day', 'Score each'], [
+  ['Missile',
+   Object.entries(C.UNITS.missiles.cost).map(([r, v]) => r === 'money' ? money(v) : `${num(v)} ${r}`).join(' + '),
+   String(C.UNITS.missiles.perDay), String(C.SCORE.MILITARY.missiles)],
+  ['Nuclear weapon',
+   Object.entries(C.UNITS.nukes.cost).map(([r, v]) => r === 'money' ? money(v) : `${num(v)} ${r}`).join(' + '),
+   String(C.UNITS.nukes.perDay), String(C.SCORE.MILITARY.nukes)],
+])}
+<p>The daily rate is the real constraint, not the price. A stockpile has to be something you planned days ago, not something you bought the morning you needed it — that is what makes it a strategic weapon rather than an expensive one. Score from missiles and nukes each cap at ${C.SCORE.MISSILE_SCORE_CAP}, so hoarding past a point buys war range and nothing else.</p>
+
+<p>Both still respect the per-city damage cap, and on top of it no single strike may remove more than <strong>${C.COMBAT.STRIKE_MAX_FRACTION_OF_CITY * 100}%</strong> of a city's current infrastructure. The cap alone is not enough: its flat term is larger than half of a small city, so without the second limit a nuclear strike erased a small city outright. <em>No city dies in one hit</em> has to hold at every city size.</p>
+
+<h3>Radiation — the reason nuclear weapons are a political problem</h3>
+<p>A nuclear strike adds <strong>${C.RADIATION.PER_NUKE_CONTINENT} Roentgen to the continent it lands on</strong> and <strong>${C.RADIATION.PER_NUKE_GLOBAL} to the entire world</strong>, dissipating over ${C.RADIATION.DISSIPATION_TURNS} turns. Radiation raises disease and cuts food output everywhere it reaches.</p>
+<p>That means every nation pays part of the price for a war it had no part in. This is the only consequence in SOVRA that lands on people who were not consulted, and it is deliberate: it is what turns "should we use nukes" from an arithmetic question into a diplomatic one.</p>
+<p>The Fallout Shelter project reduces the blast by ${num((1 - C.PROJECTS.fallout_shelter.effect.nukeDamageMultiplier) * 100)}% and shortens the fallout by ${num((1 - C.PROJECTS.fallout_shelter.effect.falloutDurationMultiplier) * 100)}%.</p>
+
 <h3>War type — declared up front</h3>
 ${table(['War type', 'Infrastructure damage', 'Loot'], warTypeRows)}
 <p>One enum field, chosen at declaration, that creates genuinely distinct playstyles. Attrition maximises destruction and minimises what you take home; a raid is the exact inverse.</p>
@@ -815,6 +850,22 @@ loot can never take a nation below ${money(M.LOOT_FLOOR)}`)}
 </ul>
 <p>Beige makes you immune to <em>new</em> declarations — existing wars continue. New nations start with <strong>${C.COLORS.BEIGE.newNationDays} days</strong> of it. Leaving beige is one-way: you can never go back voluntarily.</p>
 ${note('Alliances are not playable yet', 'The engine models alliance banks, alliance tax and colour trade blocs, and this page documents those rules because they are real code. But there is no interface to found or join an alliance yet — it is the next major system being built. Until then, the alliance-bank line above describes a rule with nothing to apply it to.', 'warn')}
+`,
+      },
+      {
+        id: 'peace', h2: 'Ending a war early', nav: 'Peace',
+        html: `
+<p>A war does not have to run to zero resistance. Either side may <strong>offer peace</strong> at any time, for free. Nothing happens until the other side offers as well — and when they do, the war ends immediately.</p>
+<p>This is a <strong>white peace</strong>, and it is currently the only kind. No winner is recorded, no money or resources change hands, no infrastructure is lost, and <em>neither side goes beige</em>.</p>
+${note('Why a white peace must not count as a defeat', 'If ending a war by agreement were filed as a loss, the loser would collect beige protection they never earned in battle — and the honest way to end a war would become the cheapest way to buy immunity. A draw is recorded as a draw.')}
+<h3>The rules</h3>
+<ul>
+  <li>Both sides must offer. An offer on its own is a standing proposal, not a ceasefire — you can still be attacked while it sits there.</li>
+  <li>You may <strong>withdraw</strong> your offer at any time; your opponent is told that you did.</li>
+  <li><strong>Attacking withdraws your offer automatically.</strong> Suing for peace and hitting them in the same turn is the one thing this system will not let you do.</li>
+  <li>It costs no action points. Talking is not a military action, and charging for it would make the cheap way out of a war something only a winning nation can afford.</li>
+</ul>
+${note('No terms yet', 'You cannot currently attach conditions to a peace offer — no reparations, no surrender terms, no ceasefire with a price. Every peace is a clean draw. Negotiated terms need a way to hold someone to them, which is a diplomacy system, not a war one.', 'warn')}
 `,
       },
       {

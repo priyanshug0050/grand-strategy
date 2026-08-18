@@ -87,20 +87,44 @@
   // Recruitment
   // ------------------------------------------------------------------
 
+  /**
+   * Missiles and nukes are in this list too.
+   *
+   * They were not, which meant the only way to build one was to call the API by
+   * hand — the projects that unlock them, their costs, their score and the
+   * whole launch mechanic existed with no route to the weapon itself.
+   *
+   * They are shown even when locked, with the project that unlocks them named.
+   * A weapon you cannot see is a weapon you never plan for, and planning is the
+   * entire point of a strategic weapon.
+   */
   function renderRecruit() {
-    el('recruit').innerHTML = ['soldiers','tanks','aircraft','ships'].map(k => {
+    const ORDER = ['soldiers', 'tanks', 'aircraft', 'ships', 'missiles', 'nukes'];
+    const owned = state.nation.projects || [];
+
+    el('recruit').innerHTML = ORDER.map(k => {
       const def = ref.units[k];
+      if (!def) return '';
+
       const costParts = Object.entries(def.cost)
         .map(([r, v]) => r === 'money' ? Fmt.money(v) : `${v} ${r}`).join(' + ');
+
+      const locked = def.requiresProject && !owned.includes(def.requiresProject);
+      const rate = def.perDay !== undefined ? `${def.perDay}/day` : null;
+
       return `
-        <div class="recruit-row">
+        <div class="recruit-row${locked ? ' locked' : ''}">
           <div>
-            <div class="nm">${Fmt.label(k)}</div>
-            <div class="meta num">${costParts} each · −${Fmt.money(def.upkeepPeace)}/day upkeep</div>
+            <div class="nm">${Fmt.label(k)}${rate ? ` <span class="tag">${rate}</span>` : ''}</div>
+            <div class="meta num">${costParts} each${def.upkeepPeace
+              ? ` · −${Fmt.money(def.upkeepPeace)}/day upkeep` : ' · no upkeep'}</div>
+            ${locked ? `<div class="meta">Needs the
+              <a href="/projects.html">${Fmt.label(def.requiresProject)}</a> project</div>` : ''}
           </div>
           <div class="row-controls" style="gap:.35rem">
-            <input type="number" min="1" value="100" id="qty-${k}" style="width:90px">
-            <button data-unit="${k}">Recruit</button>
+            <input type="number" min="1" value="${def.perDay !== undefined ? def.perDay : 100}"
+                   id="qty-${k}" style="width:90px"${locked ? ' disabled' : ''}>
+            <button data-unit="${k}"${locked ? ' disabled' : ''}>${locked ? 'Locked' : 'Recruit'}</button>
           </div>
         </div>`;
     }).join('');
@@ -172,6 +196,80 @@
     return `<div class="controls">${rows.join('')}</div>`;
   }
 
+  /**
+   * Launches sit apart from the attack buttons on purpose.
+   *
+   * They are not another attack — they cost far more MAP, they consume a weapon
+   * that took real resources to build, and a nuclear strike puts radiation on
+   * every nation in the world including the ones watching. Putting a nuke next
+   * to "Ground · 3 MAP" would make it read like one more option in a row.
+   *
+   * The intercept chance is NOT shown, because you do not know what projects
+   * they have bought. Finding that out is what Gather Intelligence is for.
+   */
+  function launchRow(w) {
+    const u = state.nation.units || {};
+    const rows = [
+      { key: 'missile_launch', unit: 'missiles', label: 'Missile',
+        note: 'Levels infrastructure in their largest city. Cannot be rolled for — it arrives, or Iron Dome stops it.' },
+      { key: 'nuclear_attack', unit: 'nukes', label: 'Nuclear strike',
+        note: 'Far heavier damage, takes buildings with it, and poisons the whole continent AND the world for weeks — including nations with no part in this war.' },
+    ].filter(r => (u[r.unit] || 0) > 0 || ref.mapCosts[r.key] !== undefined);
+
+    return rows.map(r => {
+      const held = u[r.unit] || 0;
+      const cost = ref.mapCosts[r.key];
+      const short = state.nation.map < cost;
+      const none = held < 1;
+      return `<div class="ctrl ${r.key === 'nuclear_attack' ? 'bad' : ''}">
+        <span class="k">${escapeHtml(r.label)} · ${held} held</span>
+        <span class="v">
+          ${escapeHtml(r.note)}
+          <button data-launch="${w.id}" data-kind="${r.key}"${none || short ? ' disabled' : ''}>
+            ${none ? `No ${r.unit}` : short ? `Need ${cost} MAP` : `Launch · ${cost} MAP`}
+          </button>
+        </span>
+      </div>`;
+    }).join('');
+  }
+
+  /**
+   * There is no "accept" button, because accepting is the same act as offering.
+   * When both sides have an offer standing the war ends — which is why this row
+   * shows THEIR offer as prominently as yours: an opponent who has already
+   * offered is one click away from a war being over.
+   */
+  function peaceRow(w) {
+    if (w.theyOfferedPeace && !w.iOfferedPeace) {
+      return `<div class="ctrl good">
+        <span class="k">They want peace</span>
+        <span class="v">
+          They have offered a white peace. Offer one yourself and the war ends now —
+          no winner, nothing changes hands, no beige for either side.
+          <button data-peace="${w.id}">Accept — end the war</button>
+        </span>
+      </div>`;
+    }
+    if (w.iOfferedPeace) {
+      return `<div class="ctrl">
+        <span class="k">Peace offered</span>
+        <span class="v">
+          Waiting for them. The war ends the moment they offer too.
+          <strong>Attacking withdraws your offer.</strong>
+          <button data-unpeace="${w.id}">Withdraw</button>
+        </span>
+      </div>`;
+    }
+    return `<div class="ctrl">
+      <span class="k">No peace offer</span>
+      <span class="v">
+        Offer a white peace — the war ends only if they offer as well.
+        Nobody wins, nothing changes hands, and neither side gets beige.
+        <button data-peace="${w.id}">Offer peace</button>
+      </span>
+    </div>`;
+  }
+
   function fortifyRow(w) {
     const cost = ref.mapCosts.fortify;
     const pct = Math.round(ref.fortifyCasualtyIncrease * 100);
@@ -235,7 +333,9 @@
         </div>
 
         ${controlPanel(w)}
+        ${peaceRow(w)}
         ${fortifyRow(w)}
+        ${launchRow(w)}
 
         <div class="attack-buttons">
           ${attacks().map(a => `
@@ -251,6 +351,69 @@
       b.addEventListener('click', () => showOdds(Number(b.dataset.odds), b.dataset.type)));
     el('wars').querySelectorAll('[data-fortify]').forEach(b =>
       b.addEventListener('click', () => doFortify(Number(b.dataset.fortify))));
+    el('wars').querySelectorAll('[data-launch]').forEach(b =>
+      b.addEventListener('click', () => doLaunch(Number(b.dataset.launch), b.dataset.kind)));
+    el('wars').querySelectorAll('[data-peace]').forEach(b =>
+      b.addEventListener('click', () => doPeace(Number(b.dataset.peace), false)));
+    el('wars').querySelectorAll('[data-unpeace]').forEach(b =>
+      b.addEventListener('click', () => doPeace(Number(b.dataset.unpeace), true)));
+  }
+
+  async function doLaunch(warId, kind) {
+    const nuke = kind === 'nuclear_attack';
+    const cost = ref.mapCosts[kind];
+
+    const ok = confirm(
+      `${nuke ? 'Launch a NUCLEAR STRIKE' : 'Launch a missile'}?\n\n` +
+      `Costs ${cost} action points and one ${nuke ? 'nuke' : 'missile'}.\n` +
+      `The weapon is spent even if it is intercepted.\n\n` +
+      (nuke
+        ? 'Radiation will be added to the entire continent AND the world. ' +
+          'Every nation is affected, including those with no part in this war.\n\n'
+        : '') +
+      'This cannot be undone.'
+    );
+    if (!ok) return;
+
+    try {
+      clearMessage(msg);
+      const r = await API.attack(warId, kind);
+      showMessage(msg, describeLaunch(r), r.intercepted ? 'error' : 'ok');
+      await load();
+    } catch (err) {
+      showMessage(msg, err.message);
+    }
+  }
+
+  function describeLaunch(r) {
+    if (r.intercepted) {
+      return 'Intercepted. The weapon is gone and nothing was destroyed — they have the defence project.';
+    }
+    const parts = [`Landed on ${r.targetCity}. ${Fmt.dec(r.infraDestroyed, 2)} infrastructure destroyed.`];
+    if (r.improvementsDestroyed?.length) {
+      parts.push(`Destroyed ${r.improvementsDestroyed.map(Fmt.label).join(', ')}.`);
+    }
+    if (r.radiation) {
+      parts.push(`Radiation added to ${Fmt.label(r.radiation.continent || 'the continent')} and to the world.`);
+    }
+    return parts.join(' ');
+  }
+
+  async function doPeace(warId, withdraw) {
+    try {
+      clearMessage(msg);
+      const r = withdraw ? await API.withdrawPeace(warId) : await API.offerPeace(warId);
+      showMessage(msg,
+        r.peace
+          ? 'White peace agreed. The war is over — no winner, nothing changed hands.'
+          : withdraw
+            ? 'Peace offer withdrawn.'
+            : 'Peace offered. The war ends the moment they offer too.',
+        r.peace || !withdraw ? 'ok' : 'error');
+      await load();
+    } catch (err) {
+      showMessage(msg, err.message);
+    }
   }
 
   async function doFortify(warId) {

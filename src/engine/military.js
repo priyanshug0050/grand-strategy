@@ -302,12 +302,14 @@ function dailyRecruitmentCap(cities, unitKey, opts = {}) {
   const def = C.UNITS[unitKey];
   if (!def) throw new Error(`Unknown unit: ${unitKey}`);
 
-  // Project-gated units (missiles, nukes) have no recruitment building. P&W
-  // builds them at a fixed rate from their enabling project, but that rate is
-  // unsourced — so for now they are unthrottled once the project is owned.
-  // PLACEHOLDER: give these a real per-day rate once sourced, or they become
-  // the cheapest thing in the game to spam.
-  if (!def.building) return Infinity;
+  // Project-gated units (missiles, nukes) have no recruitment building, so the
+  // rate comes from the unit itself. This used to return Infinity, which meant
+  // the only limit on nuclear production was how much money you had that day —
+  // and a strategic weapon you can buy in bulk the morning you need it is not
+  // strategic. Their rarity is what every other rule about them assumes.
+  if (!def.building) {
+    return def.perDay !== undefined ? def.perDay : Infinity;
+  }
 
   const buildingDef = C.IMPROVEMENTS[def.building];
   let perDay = (cities || []).reduce(

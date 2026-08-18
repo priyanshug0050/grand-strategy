@@ -14,6 +14,18 @@
 --  materialized view instead. A stored population WILL diverge from the
 --  computed one, and then you have two truths and no way to pick.
 --
+--  THIS FILE IS SAFE TO RUN ON A DATABASE THAT ALREADY HAS DATA.
+--
+--  Every CREATE is IF NOT EXISTS, the seed row is ON CONFLICT DO NOTHING, and
+--  the views are dropped and rebuilt so the file is always the truth about
+--  them. Running it on a live database applies any migration you are missing
+--  and touches nothing else — no table is dropped, no row is deleted.
+--
+--  It used to fail loudly on a populated database: forty "already exists"
+--  errors, all harmless, and a real failure hiding somewhere in the middle
+--  looking exactly like the noise. A migration you are afraid to re-run is a
+--  migration that does not get run.
+--
 --  MONEY AND RESOURCES ARE NUMERIC, NEVER FLOAT.
 --  Floating point accumulates error under repeated addition. Over 12 ticks a
 --  day for months, that error becomes free money — and free money in a
@@ -30,7 +42,12 @@
 -- USERS & AUTH
 -- ============================================================================
 
-CREATE TABLE users (
+-- Every CREATE below is IF NOT EXISTS, so a re-run emits one "already exists,
+-- skipping" notice per object — forty lines of noise that a real problem can
+-- hide inside. Warnings and errors still print.
+SET client_min_messages = warning;
+
+CREATE TABLE IF NOT EXISTS users (
   id            BIGSERIAL PRIMARY KEY,
   email         TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
@@ -43,7 +60,7 @@ CREATE TABLE users (
 -- GLOBAL GAME STATE (singleton)
 -- ============================================================================
 
-CREATE TABLE game_state (
+CREATE TABLE IF NOT EXISTS game_state (
   id               SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   current_turn     BIGINT NOT NULL DEFAULT 0,
   world_radiation  NUMERIC(10,4) NOT NULL DEFAULT 0 CHECK (world_radiation >= 0),
@@ -51,11 +68,11 @@ CREATE TABLE game_state (
   tick_in_progress BOOLEAN NOT NULL DEFAULT FALSE
 );
 
-INSERT INTO game_state (id) VALUES (1);
+INSERT INTO game_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 -- Per-continent radiation. Nukes hit the continent hard and the world lightly,
 -- which is what makes nuclear war a tragedy of the commons.
-CREATE TABLE continent_radiation (
+CREATE TABLE IF NOT EXISTS continent_radiation (
   continent  TEXT PRIMARY KEY,
   radiation  NUMERIC(10,4) NOT NULL DEFAULT 0 CHECK (radiation >= 0)
 );
@@ -64,7 +81,7 @@ CREATE TABLE continent_radiation (
 -- ALLIANCES
 -- ============================================================================
 
-CREATE TABLE alliances (
+CREATE TABLE IF NOT EXISTS alliances (
   id                 BIGSERIAL PRIMARY KEY,
   name               TEXT NOT NULL UNIQUE,
   acronym            TEXT NOT NULL,
@@ -84,7 +101,7 @@ CREATE TABLE alliances (
 -- trap) silently breaks. NULL means unset; 0 means turn zero.
 -- ============================================================================
 
-CREATE TABLE nations (
+CREATE TABLE IF NOT EXISTS nations (
   id                    BIGSERIAL PRIMARY KEY,
   user_id               BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name                  TEXT NOT NULL UNIQUE,
@@ -116,15 +133,15 @@ CREATE TABLE nations (
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_nations_alliance ON nations(alliance_id) WHERE is_deleted = FALSE;
-CREATE INDEX idx_nations_user ON nations(user_id);
-CREATE INDEX idx_nations_active ON nations(last_active_turn) WHERE is_deleted = FALSE;
+CREATE INDEX IF NOT EXISTS idx_nations_alliance ON nations(alliance_id) WHERE is_deleted = FALSE;
+CREATE INDEX IF NOT EXISTS idx_nations_user ON nations(user_id);
+CREATE INDEX IF NOT EXISTS idx_nations_active ON nations(last_active_turn) WHERE is_deleted = FALSE;
 
 -- ============================================================================
 -- CITIES
 -- ============================================================================
 
-CREATE TABLE cities (
+CREATE TABLE IF NOT EXISTS cities (
   id             BIGSERIAL PRIMARY KEY,
   nation_id      BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
   name           TEXT NOT NULL,
@@ -136,11 +153,11 @@ CREATE TABLE cities (
   UNIQUE (nation_id, name)
 );
 
-CREATE INDEX idx_cities_nation ON cities(nation_id);
+CREATE INDEX IF NOT EXISTS idx_cities_nation ON cities(nation_id);
 -- Damage always lands on the highest-infrastructure city, so that lookup is hot.
-CREATE INDEX idx_cities_infra ON cities(nation_id, infrastructure DESC);
+CREATE INDEX IF NOT EXISTS idx_cities_infra ON cities(nation_id, infrastructure DESC);
 
-CREATE TABLE city_improvements (
+CREATE TABLE IF NOT EXISTS city_improvements (
   city_id          BIGINT NOT NULL REFERENCES cities(id) ON DELETE CASCADE,
   improvement_key  TEXT NOT NULL,
   count            SMALLINT NOT NULL DEFAULT 0 CHECK (count >= 0),
@@ -151,21 +168,21 @@ CREATE TABLE city_improvements (
 -- STOCKPILES & UNITS
 -- ============================================================================
 
-CREATE TABLE nation_resources (
+CREATE TABLE IF NOT EXISTS nation_resources (
   nation_id  BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
   resource   TEXT NOT NULL,
   amount     NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (amount >= 0),
   PRIMARY KEY (nation_id, resource)
 );
 
-CREATE TABLE nation_units (
+CREATE TABLE IF NOT EXISTS nation_units (
   nation_id  BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
   unit_key   TEXT NOT NULL,
   count      BIGINT NOT NULL DEFAULT 0 CHECK (count >= 0),
   PRIMARY KEY (nation_id, unit_key)
 );
 
-CREATE TABLE nation_projects (
+CREATE TABLE IF NOT EXISTS nation_projects (
   nation_id    BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
   project_key  TEXT NOT NULL,
   built_turn   BIGINT NOT NULL,
@@ -175,7 +192,7 @@ CREATE TABLE nation_projects (
 -- Daily recruitment allowance. Keyed by game DAY, not calendar date — the
 -- "double buy" exploit in P&W exists precisely because the reset boundary and
 -- the purchase window are misaligned.
-CREATE TABLE recruitment_log (
+CREATE TABLE IF NOT EXISTS recruitment_log (
   nation_id  BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
   game_day   BIGINT NOT NULL,
   unit_key   TEXT NOT NULL,
@@ -187,7 +204,7 @@ CREATE TABLE recruitment_log (
 -- ALLIANCE BANK
 -- ============================================================================
 
-CREATE TABLE alliance_bank (
+CREATE TABLE IF NOT EXISTS alliance_bank (
   alliance_id  BIGINT NOT NULL REFERENCES alliances(id) ON DELETE CASCADE,
   resource     TEXT NOT NULL,
   amount       NUMERIC(20,4) NOT NULL DEFAULT 0 CHECK (amount >= 0),
@@ -196,7 +213,7 @@ CREATE TABLE alliance_bank (
 
 -- Every bank movement is logged. This is the #1 abuse surface in the genre:
 -- an unlogged withdrawal is indistinguishable from a duping bug after the fact.
-CREATE TABLE alliance_bank_log (
+CREATE TABLE IF NOT EXISTS alliance_bank_log (
   id           BIGSERIAL PRIMARY KEY,
   alliance_id  BIGINT NOT NULL REFERENCES alliances(id) ON DELETE CASCADE,
   nation_id    BIGINT REFERENCES nations(id) ON DELETE SET NULL,
@@ -208,13 +225,13 @@ CREATE TABLE alliance_bank_log (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_bank_log_alliance ON alliance_bank_log(alliance_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bank_log_alliance ON alliance_bank_log(alliance_id, created_at DESC);
 
 -- ============================================================================
 -- WARS & BATTLES
 -- ============================================================================
 
-CREATE TABLE wars (
+CREATE TABLE IF NOT EXISTS wars (
   id                     BIGSERIAL PRIMARY KEY,
   attacker_id            BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
   defender_id            BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
@@ -235,13 +252,13 @@ CREATE TABLE wars (
   CHECK (attacker_id <> defender_id)
 );
 
-CREATE INDEX idx_wars_attacker ON wars(attacker_id) WHERE ended_turn IS NULL;
-CREATE INDEX idx_wars_defender ON wars(defender_id) WHERE ended_turn IS NULL;
+CREATE INDEX IF NOT EXISTS idx_wars_attacker ON wars(attacker_id) WHERE ended_turn IS NULL;
+CREATE INDEX IF NOT EXISTS idx_wars_defender ON wars(defender_id) WHERE ended_turn IS NULL;
 
 -- rng_seed is the important column. Store it and any disputed battle can be
 -- replayed byte-for-byte through combat.js. Without it, "the game cheated me"
 -- is unanswerable.
-CREATE TABLE battles (
+CREATE TABLE IF NOT EXISTS battles (
   id                BIGSERIAL PRIMARY KEY,
   war_id            BIGINT NOT NULL REFERENCES wars(id) ON DELETE CASCADE,
   attacker_id       BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
@@ -263,13 +280,13 @@ CREATE TABLE battles (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_battles_war ON battles(war_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_battles_war ON battles(war_id, created_at DESC);
 
 -- ============================================================================
 -- ESPIONAGE
 -- ============================================================================
 
-CREATE TABLE espionage_ops (
+CREATE TABLE IF NOT EXISTS espionage_ops (
   id            BIGSERIAL PRIMARY KEY,
   attacker_id   BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
   defender_id   BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
@@ -284,7 +301,7 @@ CREATE TABLE espionage_ops (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_espionage_daily ON espionage_ops(attacker_id, turn);
+CREATE INDEX IF NOT EXISTS idx_espionage_daily ON espionage_ops(attacker_id, turn);
 
 -- ============================================================================
 -- MARKET
@@ -294,7 +311,7 @@ CREATE INDEX idx_espionage_daily ON espionage_ops(attacker_id, turn);
 -- economy feels alive. Resist adding one.
 -- ============================================================================
 
-CREATE TABLE market_orders (
+CREATE TABLE IF NOT EXISTS market_orders (
   id           BIGSERIAL PRIMARY KEY,
   nation_id    BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
   resource     TEXT NOT NULL,
@@ -308,11 +325,11 @@ CREATE TABLE market_orders (
 );
 
 -- The matching index: best price first, oldest first at equal price.
-CREATE INDEX idx_market_book ON market_orders(resource, side, price, created_at)
+CREATE INDEX IF NOT EXISTS idx_market_book ON market_orders(resource, side, price, created_at)
   WHERE is_open = TRUE;
-CREATE INDEX idx_market_nation ON market_orders(nation_id) WHERE is_open = TRUE;
+CREATE INDEX IF NOT EXISTS idx_market_nation ON market_orders(nation_id) WHERE is_open = TRUE;
 
-CREATE TABLE trades (
+CREATE TABLE IF NOT EXISTS trades (
   id             BIGSERIAL PRIMARY KEY,
   resource       TEXT NOT NULL,
   buyer_id       BIGINT REFERENCES nations(id) ON DELETE SET NULL,
@@ -329,10 +346,10 @@ CREATE TABLE trades (
   executed_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_trades_resource_time ON trades(resource, executed_at DESC);
-CREATE INDEX idx_trades_flagged ON trades(flagged) WHERE flagged = TRUE;
+CREATE INDEX IF NOT EXISTS idx_trades_resource_time ON trades(resource, executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trades_flagged ON trades(flagged) WHERE flagged = TRUE;
 
-CREATE TABLE embargoes (
+CREATE TABLE IF NOT EXISTS embargoes (
   id             BIGSERIAL PRIMARY KEY,
   nation_id      BIGINT REFERENCES nations(id) ON DELETE CASCADE,
   alliance_id    BIGINT REFERENCES alliances(id) ON DELETE CASCADE,
@@ -345,7 +362,7 @@ CREATE TABLE embargoes (
 -- EVENTS
 -- ============================================================================
 
-CREATE TABLE events (
+CREATE TABLE IF NOT EXISTS events (
   id          BIGSERIAL PRIMARY KEY,
   nation_id   BIGINT REFERENCES nations(id) ON DELETE CASCADE,
   turn        BIGINT NOT NULL,
@@ -355,8 +372,8 @@ CREATE TABLE events (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_events_nation ON events(nation_id, created_at DESC);
-CREATE INDEX idx_events_unread ON events(nation_id) WHERE is_read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_events_nation ON events(nation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_events_unread ON events(nation_id) WHERE is_read = FALSE;
 
 -- ============================================================================
 -- ANTI-ABUSE
@@ -367,7 +384,7 @@ CREATE INDEX idx_events_unread ON events(nation_id) WHERE is_read = FALSE;
 -- intermediary. That needs linkage tracking, which is what this table is for.
 -- ============================================================================
 
-CREATE TABLE account_links (
+CREATE TABLE IF NOT EXISTS account_links (
   id          BIGSERIAL PRIMARY KEY,
   nation_id   BIGINT NOT NULL REFERENCES nations(id) ON DELETE CASCADE,
   ip_hash     TEXT,
@@ -377,8 +394,8 @@ CREATE TABLE account_links (
   UNIQUE (nation_id, ip_hash, device_hash)
 );
 
-CREATE INDEX idx_links_ip ON account_links(ip_hash);
-CREATE INDEX idx_links_device ON account_links(device_hash);
+CREATE INDEX IF NOT EXISTS idx_links_ip ON account_links(ip_hash);
+CREATE INDEX IF NOT EXISTS idx_links_device ON account_links(device_hash);
 
 -- HARD BLOCK: requires BOTH ip AND device to match.
 --
@@ -392,6 +409,7 @@ CREATE INDEX idx_links_device ON account_links(device_hash);
 -- person, same machine, same connection) while leaving shared-connection
 -- players alone. Determined abusers can still evade it; that is what the
 -- softer review queue below is for.
+DROP VIEW IF EXISTS linked_nations CASCADE;
 CREATE VIEW linked_nations AS
 SELECT DISTINCT a.nation_id AS nation_a, b.nation_id AS nation_b
 FROM account_links a
@@ -403,6 +421,7 @@ JOIN account_links b
 -- SOFT SIGNAL: IP-only overlap. Never blocks anything on its own — it exists
 -- so an admin can review a pattern (one IP, twelve nations, all funnelling
 -- resources one direction) that no single rule should auto-punish.
+DROP VIEW IF EXISTS suspected_links;
 CREATE VIEW suspected_links AS
 SELECT DISTINCT a.nation_id AS nation_a, b.nation_id AS nation_b, a.ip_hash
 FROM account_links a
@@ -421,6 +440,7 @@ WHERE NOT EXISTS (
 -- Note there is deliberately NO population or score column here. Both are
 -- computed by the engine from the rows below. A view that pretended to know
 -- them would be a second source of truth.
+DROP VIEW IF EXISTS nation_summary;
 CREATE VIEW nation_summary AS
 SELECT
   n.id,
@@ -517,3 +537,19 @@ ALTER TABLE espionage_ops ADD COLUMN IF NOT EXISTS result JSONB NOT NULL DEFAULT
 -- The attacker's own log is read constantly (daily-limit checks and the page),
 -- and the defender needs their side of it too.
 CREATE INDEX IF NOT EXISTS idx_espionage_defender ON espionage_ops(defender_id, turn DESC);
+
+-- ============================================================================
+-- PEACE (migration)
+-- ============================================================================
+-- A war could only end when resistance reached zero. Two players who both
+-- wanted to stop still had to fight it out, which is not a decision either of
+-- them gets to make.
+--
+-- Peace is modelled as an offer from each side rather than an offer-and-accept
+-- pair, because they are the same thing: when both flags are true, both sides
+-- have said yes. One column each, one code path, no "pending acceptance" state
+-- that can get stuck.
+--
+-- Safe to re-run.
+ALTER TABLE wars ADD COLUMN IF NOT EXISTS attacker_peace_offer BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE wars ADD COLUMN IF NOT EXISTS defender_peace_offer BOOLEAN NOT NULL DEFAULT FALSE;

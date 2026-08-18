@@ -106,6 +106,8 @@ const API = (() => {
     recruit: (unit, count) => request('/api/military/recruit', { method: 'POST', body: { unit, count } }),
     wars: () => request('/api/wars'),
     fortify: (warId) => request(`/api/war/${warId}/fortify`, { method: 'POST' }),
+    offerPeace:    (warId) => request(`/api/war/${warId}/peace`, { method: 'POST' }),
+    withdrawPeace: (warId) => request(`/api/war/${warId}/peace`, { method: 'DELETE' }),
     warHistory: (limit = 50) => request(`/api/war-history?limit=${limit}`),
     warBattles: (warId) => request(`/api/war/${warId}/battles`),
     battle: (battleId) => request(`/api/battle/${battleId}`),

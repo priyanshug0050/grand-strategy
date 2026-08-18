@@ -440,12 +440,23 @@ const UNITS = {
     upkeepPeace: 0,
     upkeepWar: 0,
     requiresProject: 'missile_launch_pad',
+    // Project-gated units have no recruitment building, so there was no rate
+    // limiting them at all — once the launch pad was paid for, the only brake
+    // was money. A strategic weapon that can be produced in bulk on the day you
+    // need it is not strategic. DESIGN, and low on purpose: a stockpile should
+    // be something you planned days ago, not something you bought this morning.
+    perDay: 2,                                  // DESIGN
   },
   nukes: {
     cost: { money: 500000, aluminum: 750, gasoline: 500, uranium: 250 }, // PLACEHOLDER
     upkeepPeace: 0,
     upkeepWar: 0,
     requiresProject: 'nuclear_research_facility',
+    // One a day. Everything about nuclear weapons in this game — the radiation
+    // that reaches uninvolved nations, the score they add, the project they
+    // need — assumes they are rare. An unlimited rate quietly cancelled all of
+    // that.
+    perDay: 1,                                  // DESIGN
   },
 };
 
@@ -538,6 +549,41 @@ const COMBAT = {
   AIRSTRIKE_NON_INFRA_MULTIPLIER: 1 / 3,        // VERIFIED
 
   IMPROVEMENT_DESTROY_CHANCE: 0.10,             // VERIFIED — on Immense Triumph only
+
+  // --- Missiles and nuclear weapons ------------------------------------
+  // These do NOT roll. The three-roll system models two armies meeting; a
+  // missile meets nothing. It either arrives or it is intercepted, and that
+  // single fact is what makes it frightening in a way a ground battle is not.
+  //
+  // Both still respect the per-city infrastructure cap, so even a nuclear
+  // strike cannot delete a city in one hit. The cap is the rule that makes
+  // wars take days, and nothing gets an exemption from it.
+  MISSILE: {
+    INFRA_FRACTION: 0.10,                       // PLACEHOLDER — of the target city
+    INFRA_FLAT: 50,                             // PLACEHOLDER — so it hurts small cities too
+    IMPROVEMENTS_DESTROYED: 0,                  // DESIGN — missiles level ground, not buildings
+  },
+  NUKE: {
+    INFRA_FRACTION: 0.25,                       // PLACEHOLDER
+    INFRA_FLAT: 150,                            // PLACEHOLDER
+    IMPROVEMENTS_DESTROYED: 2,                  // PLACEHOLDER — chosen at random from the city
+  },
+
+  // A weapon is consumed whether it lands or is shot down. Interception has to
+  // cost the attacker something, or the defence project buys delay rather than
+  // safety.
+  INTERCEPT_CONSUMES_WEAPON: true,              // DESIGN
+
+  // No strike may remove more than this share of a city's CURRENT
+  // infrastructure.
+  //
+  // infraDamageCap() alone does not cover this. Its flat +100 term is larger
+  // than half of a small city, so a nuclear strike on a 100-infra city came out
+  // at exactly 100 — the city erased, slots gone, population gone, in one
+  // action. "No city dies in one hit" is the rule the whole war pace rests on,
+  // and it has to hold at every city size, not just the ones big enough for the
+  // percentage term to dominate.
+  STRIKE_MAX_FRACTION_OF_CITY: 0.60,            // DESIGN
 
   // --- Loot ----------------------------------------------------------------
   LOOT_SOLDIER_MIN: 0.5,                        // VERIFIED

@@ -100,6 +100,47 @@ t('resource shortfall reported', () => {
   if (!r.reason.includes('steel')) throw new Error(r.reason);
 });
 
+t('MISSILES AND NUKES HAVE A REAL DAILY RATE', () => {
+  // dailyRecruitmentCap returned Infinity for project-gated units, so once the
+  // launch pad was paid for the only limit on nuclear production was how much
+  // money you had that day. Every other rule about these weapons — the
+  // radiation, the score, the project gate — assumes they are rare.
+  const cities = [{ infrastructure: 2000, improvements: {} }];
+  for (const unit of ['missiles', 'nukes']) {
+    const cap = mil.dailyRecruitmentCap(cities, unit, { projects: [] });
+    if (!Number.isFinite(cap)) throw new Error(`${unit} still has an unlimited daily rate`);
+    if (cap !== C.UNITS[unit].perDay) throw new Error(`${unit} rate ${cap}, expected ${C.UNITS[unit].perDay}`);
+  }
+  if (!(C.UNITS.nukes.perDay <= C.UNITS.missiles.perDay)) {
+    throw new Error('nukes should not be producible faster than missiles');
+  }
+});
+
+t('the daily rate is actually enforced on recruitment', () => {
+  const nation = {
+    cities: [{ infrastructure: 2000, improvements: {} }],
+    units: {}, projects: ['nuclear_research_facility'], policies: {},
+  };
+  const perDay = C.UNITS.nukes.perDay;
+  if (!mil.canRecruit(nation, 'nukes', perDay, { recruitedToday: 0 }).ok) {
+    throw new Error('the day\'s allowance was refused');
+  }
+  const over = mil.canRecruit(nation, 'nukes', perDay + 1, { recruitedToday: 0 });
+  if (over.ok) throw new Error('built more nukes in a day than the rate allows');
+  if (mil.canRecruit(nation, 'nukes', 1, { recruitedToday: perDay }).ok) {
+    throw new Error('the rate ignored what was already built today');
+  }
+});
+
+t('a project-gated weapon is still refused without its project', () => {
+  const nation = { cities: [{ infrastructure: 2000, improvements: {} }], units: {}, projects: [], policies: {} };
+  for (const unit of ['missiles', 'nukes']) {
+    const r = mil.canRecruit(nation, unit, 1);
+    if (r.ok) throw new Error(`${unit} built with no project`);
+    if (!/project/i.test(r.reason)) throw new Error(`unclear reason: ${r.reason}`);
+  }
+});
+
 console.log('\n-- THE SUPPLY RULE --');
 const army = {soldiers:10000, tanks:1000, aircraft:100, ships:0};
 

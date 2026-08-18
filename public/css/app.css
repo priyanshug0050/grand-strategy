@@ -626,12 +626,13 @@ label { display: block; font-family: var(--data); font-size: .66rem; letter-spac
 
 /* Inline links inside body text (legal notices, hints).
    Without this they render as default browser blue on a dark background. */
-.muted a, .lede a, p a {
+.muted a, .lede a, p a, .meta a, .imp-meta a, .recruit-row a {
   color: var(--brass);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.muted a:hover, .lede a:hover, p a:hover { color: var(--chalk); }
+.muted a:hover, .lede a:hover, p a:hover, .meta a:hover,
+.imp-meta a:hover, .recruit-row a:hover { color: var(--chalk); }
 
 /* ---------- Projects ---------- */
 
@@ -691,3 +692,8 @@ button.bad  { color: var(--alarm); border-color: var(--alarm); }
 .ctrl.bad { border-left-color: var(--alarm); background: rgba(196,69,58,.06); }
 .ctrl.bad .k { color: var(--alarm); }
 .ctrl button { margin-left: .5rem; padding: .25rem .6rem; font-size: .7rem; }
+
+/* A locked unit is still listed — you cannot plan for a weapon you cannot see —
+   but it must not read as available. */
+.recruit-row.locked { opacity: .55; }
+.recruit-row.locked .nm { color: var(--chalk-dim); }

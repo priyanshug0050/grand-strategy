@@ -675,6 +675,150 @@ function battleOdds(attackerValue, defenderValue, iterations = 10000, seed = 123
 // EXPORTS
 // ============================================================================
 
+// ============================================================================
+// MISSILES AND NUCLEAR WEAPONS
+// ============================================================================
+
+/**
+ * Neither of these rolls.
+ *
+ * The three-roll system exists because two armies MEET: each commits a random
+ * fraction of its strength and the better commitment wins the exchange. Nothing
+ * meets a missile. Rolling for it would be borrowing a mechanic from a
+ * situation that is not happening, and it would make the most expensive weapon
+ * in the game the least reliable one.
+ *
+ * So a launch either arrives or is intercepted, and interception is a property
+ * of the DEFENDER's projects rather than a contest. That is what makes Iron
+ * Dome and the Vital Defense System worth their price: they are the only answer
+ * to a weapon there is otherwise no answer to.
+ *
+ * Both still respect infraDamageCap(). The cap is what guarantees no city dies
+ * in a single hit, and it is why wars take days. Nothing gets an exemption from
+ * it — least of all the weapon most likely to be aimed at a capital.
+ *
+ * @param {object} params
+ *   attacker { units, projects }
+ *   defender { cities, projects }
+ *   opts     { currentMap, rng, targetCity }
+ */
+function launchStrike(kind, params) {
+  const { attacker, defender, opts = {} } = params;
+  const rng = opts.rng || Math.random;
+
+  const isNuke = kind === 'nuclear_attack';
+  const weapon = isNuke ? 'nukes' : 'missiles';
+  const spec = isNuke ? C.COMBAT.NUKE : C.COMBAT.MISSILE;
+
+  const mapCheck = military.canPerformAction(opts.currentMap ?? Infinity, kind);
+  if (!mapCheck.ok) {
+    return { ok: false, reason: `Need ${mapCheck.cost} MAP, short by ${mapCheck.shortfall}` };
+  }
+
+  const stock = (attacker.units || {})[weapon] || 0;
+  if (stock < 1) {
+    return { ok: false, reason: `You have no ${weapon}` };
+  }
+
+  const targetCity = opts.targetCity || selectTargetCity(defender.cities);
+  if (!targetCity) return { ok: false, reason: 'The target has no cities' };
+
+  // ---- Interception -------------------------------------------------------
+  const defProjects = defender.projects || [];
+  const interceptChance = isNuke
+    ? (defProjects.includes('vital_defense_system')
+        ? C.PROJECTS.vital_defense_system.effect.nukeInterceptChance : 0)
+    : (defProjects.includes('iron_dome')
+        ? C.PROJECTS.iron_dome.effect.missileInterceptChance : 0);
+
+  const intercepted = interceptChance > 0 && rng() < interceptChance;
+
+  // The weapon is spent either way. If interception refunded it, the defence
+  // project would buy delay rather than safety, and the attacker would simply
+  // fire again next turn at no cost.
+  const spent = (!intercepted || C.COMBAT.INTERCEPT_CONSUMES_WEAPON) ? 1 : 0;
+  const consumed = { [weapon]: spent };
+
+  if (intercepted) {
+    return {
+      ok: true,
+      type: kind,
+      intercepted: true,
+      interceptChance,
+      targetCity: targetCity.name,
+      infraDestroyed: 0,
+      improvementsDestroyed: [],
+      resistanceLoss: 0,
+      radiation: null,
+      mapCost: mapCheck.cost,
+      consumed,
+    };
+  }
+
+  // ---- Damage -------------------------------------------------------------
+  let infra = targetCity.infrastructure * spec.INFRA_FRACTION + spec.INFRA_FLAT;
+
+  // Fallout Shelter reduces the blast as well as the fallout.
+  if (isNuke && defProjects.includes('fallout_shelter')) {
+    infra *= C.PROJECTS.fallout_shelter.effect.nukeDamageMultiplier;
+  }
+
+  infra = Math.min(infra, infraDamageCap(targetCity.infrastructure));
+  // The per-battle cap is not enough on its own: its flat term exceeds half of
+  // a small city, so without this a nuke erased a 100-infra city outright.
+  infra = Math.min(infra, targetCity.infrastructure * C.COMBAT.STRIKE_MAX_FRACTION_OF_CITY);
+  infra = round2(Math.max(infra, 0));
+
+  // ---- Improvements -------------------------------------------------------
+  const improvementsDestroyed = [];
+  const built = Object.entries(targetCity.improvements || {}).filter(([, n]) => n > 0);
+  for (let i = 0; i < spec.IMPROVEMENTS_DESTROYED && built.length > 0; i++) {
+    const idx = Math.floor(rng() * built.length);
+    improvementsDestroyed.push(built[idx][0]);
+    built[idx][1] -= 1;
+    if (built[idx][1] <= 0) built.splice(idx, 1);
+  }
+
+  // ---- Radiation ----------------------------------------------------------
+  // The whole point of the mechanic. A nuke poisons the continent it lands on
+  // AND the world, which means every nation that had nothing to do with the war
+  // pays part of the price. That is what makes nuclear weapons a DIPLOMATIC
+  // problem rather than merely an expensive one — and it is the only mechanic
+  // in the game whose cost lands on people who were not consulted.
+  const radiation = isNuke
+    ? {
+        continent: targetCity.continent || null,
+        continentAmount: C.RADIATION.PER_NUKE_CONTINENT,
+        worldAmount: C.RADIATION.PER_NUKE_GLOBAL,
+        dissipationTurns: defProjects.includes('fallout_shelter')
+          ? Math.round(C.RADIATION.DISSIPATION_TURNS
+              * C.PROJECTS.fallout_shelter.effect.falloutDurationMultiplier)
+          : C.RADIATION.DISSIPATION_TURNS,
+      }
+    : null;
+
+  return {
+    ok: true,
+    type: kind,
+    intercepted: false,
+    interceptChance,
+    targetCity: targetCity.name,
+    targetCityId: targetCity.id,
+    infraDestroyed: infra,
+    infraCap: round2(infraDamageCap(targetCity.infrastructure)),
+    improvementsDestroyed,
+    // Full resistance loss: there is no victory tier to scale by, because there
+    // was no contest.
+    resistanceLoss: C.COMBAT.RESISTANCE_LOSS[kind],
+    radiation,
+    mapCost: mapCheck.cost,
+    consumed,
+  };
+}
+
+function missileStrike(params) { return launchStrike('missile_launch', params); }
+function nuclearAttack(params) { return launchStrike('nuclear_attack', params); }
+
 module.exports = {
   // rng
   makeRng,
@@ -707,6 +851,8 @@ module.exports = {
   groundBattle,
   airStrike,
   navalBattle,
+  missileStrike,
+  nuclearAttack,
 
   // victory
   applyResistance,
