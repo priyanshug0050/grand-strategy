@@ -243,6 +243,14 @@ app.get('/api/reference', wrap(async (req, res) => {
     // drift into describing the same mechanic three different ways.
     controlStates: C.CONTROL_STATES,
     mapCosts: C.COMBAT.MAP_COST,
+    espionage: {
+      operations: C.ESPIONAGE.OPERATION_INFO,
+      difficulty: C.ESPIONAGE.OPERATION_MODIFIER,
+      safetyLevels: C.ESPIONAGE.SAFETY_INFO,
+      safetyValues: C.ESPIONAGE.SAFETY_LEVELS,
+      operationsPerDay: C.ESPIONAGE.DAILY_OPERATIONS,
+      spyCost: C.ESPIONAGE.SPY_COST,
+    },
     mapMax: C.COMBAT.MAP_MAX,
     fortifyCasualtyIncrease: C.COMBAT.FORTIFY_CASUALTY_INCREASE,
     domesticPolicies: C.DOMESTIC_POLICIES,
@@ -390,6 +398,36 @@ app.get('/api/war/:warId/battles', protect, wrap(async (req, res) => {
   res.json(await service.getWarBattles(req.nationId, req.params.warId));
 }));
 
+// ---- Espionage ----
+
+/** Roster, both caps, and — with ?targetId= — live odds for every operation. */
+app.get('/api/espionage', protect, wrap(async (req, res) => {
+  res.json(await service.getEspionage(req.nationId, req.query.targetId || null));
+}));
+
+app.post('/api/espionage/train', protect, touchActivity, wrap(async (req, res) => {
+  const count = Number(req.body?.count);
+  if (!Number.isInteger(count) || count <= 0) {
+    return res.status(400).json({ error: 'count must be a positive whole number' });
+  }
+  res.json(await service.trainSpies(req.nationId, count));
+}));
+
+app.post('/api/espionage/run', protect, touchActivity, wrap(async (req, res) => {
+  const { targetId, operation, safetyLevel } = req.body || {};
+  if (!targetId || !operation || !safetyLevel) {
+    return res.status(400).json({ error: 'targetId, operation and safetyLevel are required' });
+  }
+  if (!/^\d+$/.test(String(targetId))) {
+    return res.status(400).json({ error: 'targetId must be numeric' });
+  }
+  res.json(await service.runEspionage(req.nationId, Number(targetId), operation, safetyLevel));
+}));
+
+app.get('/api/espionage/log', protect, wrap(async (req, res) => {
+  res.json(await service.getEspionageLog(req.nationId, Number(req.query.limit) || 40));
+}));
+
 // ---- Projects & policies ----
 
 /** Catalogue, ownership and affordability in one call. */
@@ -471,6 +509,58 @@ app.use((err, req, res, next) => {
 // BOOT
 // ============================================================================
 
+/**
+ * Refuse to boot against a database the code has outgrown.
+ *
+ * Every migration so far has been appended to db/schema.sql as an
+ * ALTER ... IF NOT EXISTS, which is safe to re-run — and therefore very easy to
+ * forget to run at all. The failure mode is the worst kind: the server starts
+ * fine, every page loads, and then one specific action returns a 500 with
+ * "Internal server error" and the player has no idea why.
+ *
+ * That happened with espionage_ops.result. This turns it into a startup error
+ * that names the file to run.
+ *
+ * Add a row here whenever a migration adds a column the code depends on.
+ */
+const REQUIRED_COLUMNS = [
+  ['nations', 'economic_policy'],
+  ['nations', 'social_policy'],
+  ['nations', 'military_policy'],
+  ['nations', 'spies'],
+  ['users', 'is_admin'],
+  ['espionage_ops', 'result'],
+  ['wars', 'attacker_fortified'],
+];
+
+async function assertSchemaIsCurrent() {
+  const { rows } = await db.query(
+    `SELECT table_name, column_name
+       FROM information_schema.columns
+      WHERE table_schema = 'public'`
+  );
+  const present = new Set(rows.map(r => `${r.table_name}.${r.column_name}`));
+  const missing = REQUIRED_COLUMNS
+    .map(([t, c]) => `${t}.${c}`)
+    .filter(key => !present.has(key));
+
+  if (missing.length) {
+    console.error('=========================================================');
+    console.error(' DATABASE IS OUT OF DATE — refusing to start.');
+    console.error('');
+    console.error(' Missing: ' + missing.join(', '));
+    console.error('');
+    console.error(' Run the migrations:');
+    console.error('   psql "$DATABASE_URL" -f db/schema.sql');
+    console.error('');
+    console.error(' Everything in that file is IF NOT EXISTS, so it is safe');
+    console.error(' to run against a database that is already up to date.');
+    console.error(' On Render: run it in the Neon SQL Editor BEFORE deploying.');
+    console.error('=========================================================');
+    throw new Error('Database schema is out of date: missing ' + missing.join(', '));
+  }
+}
+
 async function start() {
   auth.getSecret();   // fail fast if JWT_SECRET is missing
 
@@ -478,6 +568,8 @@ async function start() {
 
   await db.query('SELECT 1');
   console.log('[server] database connected');
+
+  await assertSchemaIsCurrent();
 
   if (process.env.RESET_DB === 'true') {
     console.warn('=========================================================');
@@ -513,4 +605,4 @@ if (require.main === module) {
   start().catch(err => { console.error('[server] failed to start:', err.message); process.exit(1); });
 }
 
-module.exports = { app, start };
+module.exports = { app, start, assertSchemaIsCurrent };

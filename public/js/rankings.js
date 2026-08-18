@@ -47,6 +47,7 @@
         <a href="/projects.html">Projects</a>
         <a href="/market.html">Market</a>
         <a href="/military.html">Military</a>
+        <a href="/espionage.html">Espionage</a>
         <a href="/history.html">History</a>
         <a href="/rankings.html" aria-current="page">Rankings</a>
         <a href="/wiki/">Wiki</a>

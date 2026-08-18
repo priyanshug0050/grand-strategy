@@ -112,6 +112,107 @@ function maxSpies(projects = []) {
     : C.ESPIONAGE.MAX_SPIES;
 }
 
+function spyTrainingPerDay(projects = []) {
+  return projects.includes('intelligence_agency')
+    ? C.ESPIONAGE.SPY_TRAINING_PER_DAY_WITH_AGENCY
+    : C.ESPIONAGE.SPY_TRAINING_PER_DAY;
+}
+
+/**
+ * May this nation train `count` more spies right now?
+ *
+ * Two separate ceilings, and they are not the same thing: the roster cap is how
+ * many you may ever hold, the daily cap is how fast you may get there. Merging
+ * them would let a rich nation rebuild a wiped intelligence service in an
+ * afternoon, which is exactly what makes losing spies meaningless.
+ */
+function canTrainSpies(nation, count, opts = {}) {
+  const projects = nation.projects || [];
+  const trainedToday = opts.trainedToday || 0;
+  const have = nation.spies || 0;
+
+  if (!Number.isInteger(count) || count <= 0) {
+    return { ok: false, reason: 'Train a whole number of spies above zero' };
+  }
+
+  const rosterCap = maxSpies(projects);
+  if (have + count > rosterCap) {
+    return {
+      ok: false,
+      reason: `Your intelligence service holds at most ${rosterCap} spies — you have ${have}`,
+      maxPossible: Math.max(rosterCap - have, 0),
+    };
+  }
+
+  const dailyCap = spyTrainingPerDay(projects);
+  if (trainedToday + count > dailyCap) {
+    return {
+      ok: false,
+      reason: `You can train ${dailyCap} spies a day and have trained ${trainedToday} today`,
+      maxPossible: Math.max(dailyCap - trainedToday, 0),
+    };
+  }
+
+  const cost = {};
+  for (const [res, per] of Object.entries(C.ESPIONAGE.SPY_COST)) cost[res] = per * count;
+
+  return { ok: true, cost, rosterCap, dailyCap };
+}
+
+/**
+ * What a SUCCESSFUL operation actually does.
+ *
+ * resolveEspionage() decides whether an operation lands. This decides what
+ * landing means, and it is deliberately separate: the odds are an opposed check
+ * between two spy services, while the damage is a property of the target being
+ * hit. Tangling them would mean re-deriving the odds every time a magnitude is
+ * tuned.
+ *
+ * Never destroys more than the target actually has, so a sabotage against an
+ * empty hangar reports zero rather than driving a count negative.
+ */
+function espionageOutcome(operation, target = {}, opts = {}) {
+  const rng = opts.rng || Math.random;
+  const effect = C.ESPIONAGE.OPERATION_EFFECT[operation];
+  if (!effect) throw new Error(`Unknown espionage operation: ${operation}`);
+
+  if (effect.kind === 'reveal') {
+    return {
+      kind: 'reveal',
+      revealed: {
+        units: { ...(target.units || {}) },
+        stockpile: { ...(target.stockpile || {}) },
+        spies: target.spies || 0,
+        money: target.money,
+      },
+    };
+  }
+
+  const held = effect.target === 'spies'
+    ? (target.spies || 0)
+    : ((target.units || {})[effect.target] || 0);
+
+  let destroyed;
+  if (effect.flat !== undefined) {
+    destroyed = Math.min(effect.flat, held);
+  } else {
+    const fraction = effect.min + rng() * (effect.max - effect.min);
+    destroyed = Math.floor(held * fraction);
+    if (effect.minCount && held > 0) destroyed = Math.max(destroyed, effect.minCount);
+    destroyed = Math.min(destroyed, held);
+  }
+
+  return {
+    kind: 'destroy',
+    target: effect.target,
+    destroyed,
+    heldBefore: held,
+    // An operation that succeeds against an empty stockpile is still a success —
+    // it just achieved nothing. Saying so is more useful than reporting a win.
+    hitNothing: destroyed === 0,
+  };
+}
+
 // ============================================================================
 // PROJECTS
 // ============================================================================
@@ -432,6 +533,9 @@ module.exports = {
   espionageOdds,
   resolveEspionage,
   maxSpies,
+  spyTrainingPerDay,
+  canTrainSpies,
+  espionageOutcome,
 
   aggregateProjectEffects,
   projectScore,

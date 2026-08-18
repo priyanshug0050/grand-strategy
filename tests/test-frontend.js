@@ -730,7 +730,8 @@ async function cleanup() {
 
   await t('every in-game page links to the wiki', async () => {
     for (const p of ['/dashboard.html','/cities.html','/economy.html','/policy.html',
-                     '/market.html','/military.html','/projects.html','/history.html']) {
+                     '/market.html','/military.html','/projects.html','/history.html',
+                     '/espionage.html']) {
       const r = await get(p);
       if (!r.body.includes('/wiki/')) throw new Error(`${p} has no wiki link`);
     }
@@ -845,6 +846,158 @@ async function cleanup() {
     has(r.body, 'ref.mapCosts', 'military.js');
     has(r.body, 'controlStates', 'military.js');
     has(r.body, 'data-fortify', 'military.js');
+  });
+
+  console.log('\n-- Espionage --');
+
+  await t('THE SERVER REFUSES TO BOOT ON AN OUT-OF-DATE DATABASE', async () => {
+    // The migration for espionage_ops.result is IF NOT EXISTS, which makes it
+    // safe to re-run and therefore very easy to forget entirely. The old
+    // failure mode was the worst kind: everything loads, then one action
+    // returns "Internal server error" and nobody knows why.
+    const server = require('../server');
+    if (typeof server.assertSchemaIsCurrent !== 'function') {
+      throw new Error('startup schema check is not exported — it cannot be tested');
+    }
+    await server.assertSchemaIsCurrent();          // current DB: must not throw
+
+    await db.query('ALTER TABLE espionage_ops DROP COLUMN IF EXISTS result');
+    let threw = false;
+    try { await server.assertSchemaIsCurrent(); } catch { threw = true; }
+    await db.query(`ALTER TABLE espionage_ops ADD COLUMN IF NOT EXISTS result JSONB NOT NULL DEFAULT '{}'`);
+    if (!threw) throw new Error('a missing migration did not stop startup');
+  });
+
+
+
+  await t('espionage page loads and api.js comes first', async () => {
+    const r = await get('/espionage.html');
+    eq(r.status, 200);
+    const apiPos = r.body.indexOf('/js/api.js');
+    const pagePos = r.body.indexOf('/js/espionage.js');
+    if (apiPos === -1 || pagePos === -1) throw new Error('a script tag is missing');
+    if (apiPos > pagePos) throw new Error('api.js loads AFTER espionage.js');
+  });
+
+  await t('reference carries every operation, its difficulty and its wording', async () => {
+    const C = require('../src/engine/constants');
+    const r = await get('/api/reference');
+    for (const op of Object.keys(C.ESPIONAGE.OPERATION_MODIFIER)) {
+      if (!r.body.espionage.operations[op]) throw new Error(`no wording for ${op}`);
+      if (r.body.espionage.difficulty[op] === undefined) throw new Error(`no difficulty for ${op}`);
+    }
+    for (const level of Object.keys(C.ESPIONAGE.SAFETY_LEVELS)) {
+      if (!r.body.espionage.safetyLevels[level]) throw new Error(`no wording for ${level}`);
+    }
+  });
+
+  await t('roster reports both ceilings — they are different limits', async () => {
+    const r = await get('/api/espionage', token);
+    eq(r.status, 200);
+    for (const k of ['spies','maxSpies','trainingPerDay','trainedToday',
+                     'operationsPerDay','operationsToday','range']) {
+      if (!(k in r.body)) throw new Error(`espionage state is missing ${k}`);
+    }
+  });
+
+  await t('TRAINING RESPECTS THE DAILY CAP, NOT JUST THE ROSTER CAP', async () => {
+    // Two different limits. Merging them would let a rich nation rebuild a wiped
+    // intelligence service in an afternoon, which makes losing spies meaningless.
+    const C = require('../src/engine/constants');
+    const before = await get('/api/espionage', token);
+    const perDay = before.body.trainingPerDay;
+
+    const first = await fetch(`${BASE}/api/espionage/train`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ count: perDay }),
+    });
+    if (first.status !== 200) {
+      const b = await first.json();
+      if (!/costs|holds at most/.test(b.error || '')) throw new Error(b.error);
+      return;                                   // too poor to train; nothing to assert
+    }
+
+    const second = await fetch(`${BASE}/api/espionage/train`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ count: 1 }),
+    });
+    if (second.status === 200) throw new Error('daily training cap was not enforced');
+
+    const after = await get('/api/espionage', token);
+    eq(after.body.spies, before.body.spies + perDay, 'spies trained');
+    eq(after.body.trainedToday, perDay, 'training logged for the day');
+  });
+
+  await t('ODDS COME FROM THE ENGINE, NOT THE PAGE', async () => {
+    // The preview must be produced by the same function that resolves the
+    // attempt. A second implementation in the browser is a second answer.
+    const others = await get('/api/rankings');
+    const me = await get('/api/nation', token);
+    const target = others.body.nations.find(n => n.id !== me.body.nation.id);
+    if (!target) return;
+
+    const r = await get(`/api/espionage?targetId=${target.id}`, token);
+    eq(r.status, 200);
+    if (!r.body.target) throw new Error('no target block returned');
+
+    const C = require('../src/engine/constants');
+    for (const op of Object.keys(C.ESPIONAGE.OPERATION_MODIFIER)) {
+      for (const level of Object.keys(C.ESPIONAGE.SAFETY_LEVELS)) {
+        const v = r.body.target.odds[op]?.[level];
+        if (typeof v !== 'number' || v < 0 || v > 100) {
+          throw new Error(`odds for ${op}/${level} are ${v}`);
+        }
+      }
+    }
+    // Harder operations must never beat easier ones at the same safety level.
+    const lvl = 'normal_precautions';
+    if (r.body.target.odds.sabotage_nuke[lvl] > r.body.target.odds.gather_intelligence[lvl]) {
+      throw new Error('sabotaging a nuke came out easier than gathering intelligence');
+    }
+  });
+
+  await t('THE TARGET\'S SPY COUNT IS NEVER REVEALED', async () => {
+    // That is what gather_intelligence is for. Shipping it in the preview would
+    // hand out for free the thing the operation exists to buy.
+    const others = await get('/api/rankings');
+    const me = await get('/api/nation', token);
+    const target = others.body.nations.find(n => n.id !== me.body.nation.id);
+    if (!target) return;
+
+    const r = await get(`/api/espionage?targetId=${target.id}`, token);
+    if ('spies' in r.body.target) throw new Error('target block exposes their spy count');
+  });
+
+  await t('operations refuse an unknown operation or safety level', async () => {
+    const others = await get('/api/rankings');
+    const me = await get('/api/nation', token);
+    const target = others.body.nations.find(n => n.id !== me.body.nation.id);
+    if (!target) return;
+
+    for (const body of [
+      { targetId: target.id, operation: 'mind_control', safetyLevel: 'normal_precautions' },
+      { targetId: target.id, operation: 'sabotage_tanks', safetyLevel: 'invisible' },
+      { targetId: me.body.nation.id, operation: 'sabotage_tanks', safetyLevel: 'normal_precautions' },
+    ]) {
+      const res = await fetch(`${BASE}/api/espionage/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 200) throw new Error(`accepted ${JSON.stringify(body)}`);
+    }
+  });
+
+  await t('the log never names an undetected attacker', async () => {
+    const r = await get('/api/espionage/log', token);
+    eq(r.status, 200);
+    for (const o of r.body.operations) {
+      if (!o.yoursToRun && !o.detected && o.other !== null) {
+        throw new Error('an undetected attacker was named in the log');
+      }
+    }
   });
 
   console.log('\n-- Rankings (public) --');
@@ -967,7 +1120,7 @@ async function cleanup() {
     // self-contained stylesheet and never loads the game CSS.
     for (const p of ['/login.html','/dashboard.html','/cities.html','/economy.html',
                      '/policy.html','/market.html','/military.html','/admin.html',
-                     '/projects.html','/history.html','/rankings.html']) {
+                     '/projects.html','/history.html','/rankings.html','/espionage.html']) {
       const r = await get(p);
       if (!r.body.includes('mobile.css')) throw new Error(`${p} does not load mobile.css`);
       if (r.body.indexOf('app.css') > r.body.indexOf('mobile.css')) {
@@ -982,7 +1135,7 @@ async function cleanup() {
     for (const p of ['/index.html','/login.html','/privacy.html','/terms.html',
                      '/dashboard.html','/cities.html','/economy.html',
                      '/policy.html','/market.html','/military.html','/admin.html',
-                     '/projects.html','/history.html','/rankings.html']) {
+                     '/projects.html','/history.html','/rankings.html','/espionage.html']) {
       const r = await get(p);
       if (!r.body.includes('name="viewport"')) throw new Error(`${p} has no viewport meta`);
       if (!r.body.includes('width=device-width')) throw new Error(`${p} viewport is not device-width`);

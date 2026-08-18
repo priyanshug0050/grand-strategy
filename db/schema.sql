@@ -502,3 +502,18 @@ CREATE TABLE IF NOT EXISTS admin_log (
 CREATE INDEX IF NOT EXISTS idx_admin_log_time ON admin_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_admin_log_admin ON admin_log(admin_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_admin_log_target ON admin_log(target_type, target_id);
+
+-- ============================================================================
+-- ESPIONAGE RESULT (migration)
+-- ============================================================================
+-- espionage_ops recorded whether an operation succeeded and whether it was
+-- traced, but not what it actually DID. Without that, the log can say "sabotage
+-- tanks succeeded" and still not tell you how many tanks died — which is the
+-- only number either side cares about afterwards.
+--
+-- Safe to re-run.
+ALTER TABLE espionage_ops ADD COLUMN IF NOT EXISTS result JSONB NOT NULL DEFAULT '{}';
+
+-- The attacker's own log is read constantly (daily-limit checks and the page),
+-- and the defender needs their side of it too.
+CREATE INDEX IF NOT EXISTS idx_espionage_defender ON espionage_ops(defender_id, turn DESC);

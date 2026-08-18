@@ -342,13 +342,34 @@ finalOdds = odds / operationModifier</code></div>
 </tbody></table>
 <p>The <strong>&times;3 weighting on enemy spies</strong> is the whole design. Defence is roughly three times cheaper than offence, so a nation that keeps a modest spy count is very hard to operate against — and ignoring spies entirely is an open invitation.</p>
 <table>
-<thead><tr><th>Safety level</th><th>Odds bonus</th></tr></thead>
+<thead><tr><th>Safety level</th><th>Odds bonus</th><th>What it buys</th></tr></thead>
 <tbody>
-<tr><td data-label="Safety level">Quick And Dirty</td><td data-label="Odds bonus">+25%</td></tr>
-<tr><td data-label="Safety level">Normal Precautions</td><td data-label="Odds bonus">+50%</td></tr>
-<tr><td data-label="Safety level">Extremely Covert</td><td data-label="Odds bonus">+75%</td></tr>
+<tr><td data-label="Safety level">Quick and dirty</td><td data-label="Odds bonus">+25%</td><td data-label="What it buys">Worst odds, most likely to be traced back to you.</td></tr>
+<tr><td data-label="Safety level">Normal precautions</td><td data-label="Odds bonus">+50%</td><td data-label="What it buys">The middle option.</td></tr>
+<tr><td data-label="Safety level">Extremely covert</td><td data-label="Odds bonus">+75%</td><td data-label="What it buys">Best odds and least likely to be identified.</td></tr>
 </tbody></table>
-<p>Espionage results are seeded and stored the same way battles are.</p>
+<p>Safety does two jobs at once: better odds, and a lower chance of being identified. A failed operation always costs you spies; a <em>detected</em> one also tells the target exactly who tried it.</p>
+
+<h3>Spies</h3>
+<p>Spies cost <strong>$50,000</strong> each, money only. You may hold <strong>50</strong> (<strong>60</strong> with the Intelligence Agency project) and train <strong>2 per day</strong> (<strong>3</strong> with the project).</p>
+<div class="note "><div class="t">The daily cap is the real constraint, not the price</div><p>A full service takes weeks to build regardless of how rich you are. That is deliberate — if a wiped intelligence service could be rebuilt in an afternoon, losing spies would cost nothing and the whole system would collapse into a money sink.</p></div>
+<p>Spies cost money and nothing else. Making them cost steel would tie the intelligence game to the industrial one for no reason, and would lock a bombed-out nation out of the one thing it can still afford to do.</p>
+
+<h3>What a successful operation does</h3>
+<table>
+<thead><tr><th>Operation</th><th>Difficulty</th><th>On success</th></tr></thead>
+<tbody>
+<tr><td data-label="Operation">Gather Intelligence</td><td data-label="Difficulty">&divide;1.0</td><td data-label="On success">Reveals their army, stockpile and spy count</td></tr>
+<tr><td data-label="Operation">Assassinate Spies</td><td data-label="Difficulty">&divide;1.5</td><td data-label="On success">Destroys 20–40% of their spies (at least 1)</td></tr>
+<tr><td data-label="Operation">Sabotage Tanks</td><td data-label="Difficulty">&divide;1.5</td><td data-label="On success">Destroys 5–8% of their tanks</td></tr>
+<tr><td data-label="Operation">Sabotage Aircraft</td><td data-label="Difficulty">&divide;2.0</td><td data-label="On success">Destroys 5–8% of their aircraft</td></tr>
+<tr><td data-label="Operation">Sabotage Ships</td><td data-label="Difficulty">&divide;3.0</td><td data-label="On success">Destroys 5–8% of their ships</td></tr>
+<tr><td data-label="Operation">Sabotage Missile</td><td data-label="Difficulty">&divide;4.0</td><td data-label="On success">Destroys 1 missiles</td></tr>
+<tr><td data-label="Operation">Sabotage Nuke</td><td data-label="Difficulty">&divide;5.0</td><td data-label="On success">Destroys 1 nukes</td></tr>
+</tbody></table>
+<p>The magnitudes are deliberately small. Espionage is attrition and information — sabotage should make a war easier to win, never win one on its own.</p>
+<p>You may run <strong>2 operations per day</strong>, against targets inside the same score range that governs war. Nations on beige cannot be targeted: a nation that cannot retaliate should not be farmed for intelligence either.</p>
+<p>Espionage results are seeded and stored the same way battles are, so a disputed result can be replayed rather than argued about.</p>
 
 </section>
   </article>

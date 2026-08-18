@@ -1,6 +1,7 @@
 const tick = require('../src/engine/tick');
 const mod = require('../src/engine/modifiers');
 const C = require('../src/engine/constants');
+const combat = require('../src/engine/combat');   // seeded rng for the espionage outcome tests
 
 let pass=0, fail=0;
 function t(n,f){ try{f();console.log('  PASS '+n);pass++;}catch(e){console.log('  FAIL '+n+' -> '+e.message);fail++;} }
@@ -43,6 +44,88 @@ t('resolution is deterministic with seeded rng', () => {
   const a = mod.resolveEspionage(20,10,2,'sabotage_tanks',{rng:combat.makeRng(5)});
   const b = mod.resolveEspionage(20,10,2,'sabotage_tanks',{rng:combat.makeRng(5)});
   eq(JSON.stringify(a), JSON.stringify(b));
+});
+
+t('spy training has TWO ceilings, and they are different', () => {
+  // Roster cap is how many you may ever hold; daily cap is how fast you may get
+  // there. If one implied the other, a wiped intelligence service could be
+  // rebuilt in an afternoon and losing spies would cost nothing.
+  const fresh = { spies: 0, projects: [] };
+  if (!mod.canTrainSpies(fresh, 2, { trainedToday: 0 }).ok) throw new Error('2 should be allowed');
+  if (mod.canTrainSpies(fresh, 3, { trainedToday: 0 }).ok) throw new Error('daily cap not enforced');
+  if (mod.canTrainSpies(fresh, 1, { trainedToday: 2 }).ok) throw new Error('training already done today ignored');
+
+  const full = { spies: C.ESPIONAGE.MAX_SPIES, projects: [] };
+  if (mod.canTrainSpies(full, 1, { trainedToday: 0 }).ok) throw new Error('roster cap not enforced');
+
+  const agency = { spies: C.ESPIONAGE.MAX_SPIES, projects: ['intelligence_agency'] };
+  if (!mod.canTrainSpies(agency, 1, { trainedToday: 0 }).ok) throw new Error('agency should raise the roster');
+});
+
+t('training cost scales with count and is money only', () => {
+  const c = mod.canTrainSpies({ spies: 0, projects: [] }, 2, { trainedToday: 0 }).cost;
+  if (c.money !== C.ESPIONAGE.SPY_COST.money * 2) throw new Error('cost does not scale');
+  if (Object.keys(c).length !== 1) throw new Error('spies should cost money only');
+});
+
+t('rejects a fractional or negative spy count', () => {
+  for (const n of [0, -1, 1.5, NaN]) {
+    if (mod.canTrainSpies({ spies: 0, projects: [] }, n, { trainedToday: 0 }).ok) {
+      throw new Error(`accepted count ${n}`);
+    }
+  }
+});
+
+console.log('\n-- Espionage outcomes --');
+
+t('sabotage destroys a slice, never more than they hold', () => {
+  const target = { units: { tanks: 1000 }, spies: 0 };
+  for (let seed = 1; seed <= 40; seed++) {
+    const o = mod.espionageOutcome('sabotage_tanks', target, { rng: combat.makeRng(seed) });
+    if (o.destroyed < 0 || o.destroyed > 1000) throw new Error(`destroyed ${o.destroyed}`);
+    const frac = o.destroyed / 1000;
+    const e = C.ESPIONAGE.OPERATION_EFFECT.sabotage_tanks;
+    if (frac > e.max + 0.001) throw new Error(`destroyed ${frac} of the force, above the cap`);
+  }
+});
+
+t('an operation against an empty stockpile SUCCEEDS and says it hit nothing', () => {
+  // Reporting a win that changed nothing is worse than useless — the player
+  // spends the next operation wondering why the number did not move.
+  const o = mod.espionageOutcome('sabotage_ships', { units: { ships: 0 } }, { rng: combat.makeRng(3) });
+  if (o.destroyed !== 0) throw new Error('destroyed ships that did not exist');
+  if (!o.hitNothing) throw new Error('did not report hitting nothing');
+});
+
+t('missile and nuke sabotage take exactly one, and never go negative', () => {
+  const one = mod.espionageOutcome('sabotage_missile', { units: { missiles: 3 } }, { rng: combat.makeRng(1) });
+  if (one.destroyed !== 1) throw new Error(`destroyed ${one.destroyed}`);
+  const none = mod.espionageOutcome('sabotage_nuke', { units: {} }, { rng: combat.makeRng(1) });
+  if (none.destroyed !== 0) throw new Error('destroyed a nuke that did not exist');
+});
+
+t('assassination always takes at least one spy when they have any', () => {
+  const o = mod.espionageOutcome('assassinate_spies', { spies: 2 }, { rng: combat.makeRng(9) });
+  if (o.destroyed < 1) throw new Error('an assassination that kills nobody is not an assassination');
+  if (o.destroyed > 2) throw new Error('killed more spies than they had');
+});
+
+t('gather intelligence reveals and destroys nothing', () => {
+  const o = mod.espionageOutcome('gather_intelligence',
+    { units: { tanks: 5 }, stockpile: { steel: 9 }, spies: 4, money: 100 }, { rng: combat.makeRng(1) });
+  if (o.kind !== 'reveal') throw new Error('wrong kind');
+  if (o.revealed.tanks !== undefined && o.destroyed !== undefined) throw new Error('reveal should not destroy');
+  if (o.revealed.units.tanks !== 5 || o.revealed.spies !== 4) throw new Error('did not reveal the real values');
+});
+
+t('every operation has a difficulty, an effect and player-facing wording', () => {
+  for (const op of Object.keys(C.ESPIONAGE.OPERATION_MODIFIER)) {
+    if (!C.ESPIONAGE.OPERATION_EFFECT[op]) throw new Error(`${op} has no effect`);
+    if (!C.ESPIONAGE.OPERATION_INFO[op]) throw new Error(`${op} has no wording`);
+  }
+  for (const op of Object.keys(C.ESPIONAGE.OPERATION_EFFECT)) {
+    if (C.ESPIONAGE.OPERATION_MODIFIER[op] === undefined) throw new Error(`${op} has no difficulty`);
+  }
 });
 
 console.log('\n-- Project aggregation --');

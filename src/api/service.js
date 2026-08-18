@@ -1509,6 +1509,312 @@ async function getWars(nationId) {
   };
 }
 
+// ============================================================================
+// ESPIONAGE
+// ============================================================================
+
+/** How many spies this nation trained during the current game day. */
+async function spiesTrainedToday(tx, nationId, turn) {
+  const gameDay = Math.floor(turn / C.TICK.TURNS_PER_DAY);
+  const { rows } = await tx.query(
+    `SELECT count FROM recruitment_log
+      WHERE nation_id = $1 AND game_day = $2 AND unit_key = 'spies'`,
+    [nationId, gameDay]
+  );
+  return rows.length ? Number(rows[0].count) : 0;
+}
+
+/** How many operations this nation has run during the current game day. */
+async function operationsToday(tx, nationId, turn) {
+  const dayStart = Math.floor(turn / C.TICK.TURNS_PER_DAY) * C.TICK.TURNS_PER_DAY;
+  const { rows } = await tx.query(
+    `SELECT count(*) AS n FROM espionage_ops WHERE attacker_id = $1 AND turn >= $2`,
+    [nationId, dayStart]
+  );
+  return Number(rows[0].n);
+}
+
+/**
+ * Everything the espionage page needs before you commit to anything: your
+ * roster, both caps, what each operation does, and — for a chosen target — the
+ * real odds of every operation at every safety level.
+ */
+async function getEspionage(nationId, targetId = null) {
+  return db.withTransaction(async (tx) => {
+    const gs = await repo.loadGameState(tx);
+    const me = await repo.loadNation(tx, nationId, { currentTurn: gs.turn });
+    if (!me) throw new GameError('Nation not found');
+
+    const projects = me.projects || [];
+    const myScore = military.nationScore(me);
+    const range = military.espionageRange(myScore);
+
+    const trainedToday = await spiesTrainedToday(tx, nationId, gs.turn);
+    const opsToday = await operationsToday(tx, nationId, gs.turn);
+
+    let target = null;
+    if (targetId) {
+      const them = await repo.loadNation(tx, Number(targetId), { currentTurn: gs.turn });
+      if (!them) throw new GameError('Target not found');
+
+      const theirScore = military.nationScore(them);
+      const onBeige = them.beigeUntilTurn !== null && gs.turn < Number(them.beigeUntilTurn);
+
+      // Odds for every operation at every safety level, computed with the SAME
+      // function the attempt will use. A preview derived any other way is a
+      // second implementation waiting to disagree with the first.
+      const odds = {};
+      for (const op of Object.keys(C.ESPIONAGE.OPERATION_MODIFIER)) {
+        odds[op] = {};
+        for (const level of Object.keys(C.ESPIONAGE.SAFETY_LEVELS)) {
+          odds[op][level] = round2(modifiers.espionageOdds(
+            me.spies || 0, them.spies || 0, level, op,
+            { attackerPolicy: me.policies.military, defenderPolicy: them.policies.military }
+          ));
+        }
+      }
+
+      target = {
+        id: them.id,
+        name: them.name,
+        score: round2(theirScore),
+        inRange: theirScore >= range.min && theirScore <= range.max,
+        onBeige,
+        // Their spy count is the single most important number here and it is
+        // NOT public. You are told the odds, which already encode it, rather
+        // than the count itself — otherwise gather_intelligence has no job.
+        odds,
+      };
+    }
+
+    return {
+      turn: gs.turn,
+      spies: me.spies || 0,
+      maxSpies: modifiers.maxSpies(projects),
+      trainingPerDay: modifiers.spyTrainingPerDay(projects),
+      trainedToday,
+      spyCost: C.ESPIONAGE.SPY_COST,
+      money: round2(me.money),
+      operationsPerDay: C.ESPIONAGE.DAILY_OPERATIONS,
+      operationsToday: opsToday,
+      score: round2(myScore),
+      range,
+      hasAgency: projects.includes('intelligence_agency'),
+      target,
+    };
+  });
+}
+
+/**
+ * Train spies. Two ceilings apply and they mean different things — see
+ * canTrainSpies in modifiers.js.
+ */
+async function trainSpies(nationId, count) {
+  return db.withTransaction(async (tx) => {
+    const { nation, gameState } = await loadLocked(tx, nationId);
+
+    const trainedToday = await spiesTrainedToday(tx, nationId, gameState.turn);
+    const check = modifiers.canTrainSpies(nation, count, { trainedToday });
+    if (!check.ok) throw new GameError(check.reason, { maxPossible: check.maxPossible });
+
+    for (const [res, amount] of Object.entries(check.cost)) {
+      if (res === 'money') {
+        if (nation.money < amount) {
+          throw new GameError(`Training ${count} spies costs ${amount} and you have ${Math.floor(nation.money)}`);
+        }
+        nation.money -= amount;
+      } else {
+        if ((nation.stockpile[res] || 0) < amount) throw new GameError(`Insufficient ${res}`);
+        nation.stockpile[res] -= amount;
+      }
+    }
+
+    nation.spies = (nation.spies || 0) + count;
+
+    const gameDay = Math.floor(gameState.turn / C.TICK.TURNS_PER_DAY);
+    await repo.logRecruitment(tx, nationId, gameDay, 'spies', count);
+    await repo.saveNation(tx, nation);
+
+    return {
+      trained: count,
+      cost: check.cost,
+      spies: nation.spies,
+      maxSpies: check.rosterCap,
+      trainedToday: trainedToday + count,
+      trainingPerDay: check.dailyCap,
+    };
+  });
+}
+
+/**
+ * Run an operation.
+ *
+ * Order of the guards matters. Game reasons first — no spies, out of range,
+ * target on beige, daily limit — so the player gets the answer they can act on.
+ * The linked-account check comes last, exactly as it does for war declarations,
+ * because leading with it makes an ordinary refusal look like an accusation.
+ */
+async function runEspionage(nationId, targetId, operation, safetyLevel) {
+  return db.withTransaction(async (tx) => {
+    if (Number(nationId) === Number(targetId)) {
+      throw new GameError('You cannot run an operation against yourself');
+    }
+    if (C.ESPIONAGE.OPERATION_MODIFIER[operation] === undefined) {
+      throw new GameError(`Unknown operation: ${operation}`);
+    }
+    if (!C.ESPIONAGE.SAFETY_LEVELS[safetyLevel]) {
+      throw new GameError(`Unknown safety level: ${safetyLevel}`);
+    }
+
+    await db.lockNations(tx, [Number(nationId), Number(targetId)]);
+
+    const gs = await repo.loadGameState(tx);
+    const me = await repo.loadNation(tx, nationId, { lock: true, currentTurn: gs.turn });
+    const them = await repo.loadNation(tx, targetId, { lock: true, currentTurn: gs.turn });
+    if (!me) throw new GameError('Nation not found');
+    if (!them) throw new GameError('Target not found');
+
+    if ((me.spies || 0) < 1) throw new GameError('You have no spies. Train some first.');
+
+    const opsToday = await operationsToday(tx, nationId, gs.turn);
+    if (opsToday >= C.ESPIONAGE.DAILY_OPERATIONS) {
+      throw new GameError(
+        `You have used all ${C.ESPIONAGE.DAILY_OPERATIONS} operations for today`);
+    }
+
+    const myScore = military.nationScore(me);
+    const theirScore = military.nationScore(them);
+    if (!military.isInEspionageRange(myScore, theirScore)) {
+      const r = military.espionageRange(myScore);
+      throw new GameError(
+        `${them.name} is outside your espionage range of ${round2(r.min)}–${round2(r.max)}`);
+    }
+
+    if (C.ESPIONAGE.BEIGE_BLOCKS_ESPIONAGE
+        && them.beigeUntilTurn !== null && gs.turn < Number(them.beigeUntilTurn)) {
+      throw new GameError('That nation is on beige and cannot be targeted');
+    }
+
+    if (process.env.ALLOW_LINKED_WARS !== 'true'
+        && await repo.areNationsLinked(tx, nationId, targetId)) {
+      throw new GameError(
+        'You cannot run operations against a linked account. If you share an ' +
+        'internet connection with another player, contact an administrator.');
+    }
+
+    // Seeded, and the seed is stored — same contract as a battle. An espionage
+    // result a player disputes can be replayed rather than argued about.
+    const seed = Math.floor(Math.random() * 2147483647);
+    const rng = combat.makeRng(seed);
+
+    const resolution = modifiers.resolveEspionage(
+      me.spies || 0, them.spies || 0, safetyLevel, operation,
+      { rng, attackerPolicy: me.policies.military, defenderPolicy: them.policies.military }
+    );
+
+    let outcome = null;
+    if (resolution.success) {
+      outcome = modifiers.espionageOutcome(operation, {
+        units: them.units, stockpile: them.stockpile, spies: them.spies, money: them.money,
+      }, { rng });
+
+      if (outcome.kind === 'destroy' && outcome.destroyed > 0) {
+        if (outcome.target === 'spies') {
+          them.spies = Math.max((them.spies || 0) - outcome.destroyed, 0);
+        } else {
+          them.units[outcome.target] = Math.max(
+            (them.units[outcome.target] || 0) - outcome.destroyed, 0);
+        }
+        await repo.saveNation(tx, them);
+      }
+    }
+
+    if (resolution.spiesLost > 0) {
+      me.spies = Math.max((me.spies || 0) - resolution.spiesLost, 0);
+    }
+    await repo.saveNation(tx, me);
+
+    await tx.query(
+      `INSERT INTO espionage_ops
+        (attacker_id, defender_id, operation, safety_level, success, detected,
+         odds, spies_lost, rng_seed, turn, result)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [nationId, targetId, operation, C.ESPIONAGE.SAFETY_LEVELS[safetyLevel],
+       resolution.success, resolution.detected, resolution.odds, resolution.spiesLost,
+       seed, gs.turn, JSON.stringify(outcome || {})]
+    );
+
+    // The defender is told SOMETHING happened either way. Whether they learn who
+    // did it is the entire point of the safety level — a silent operation would
+    // make espionage a one-sided mechanic with no counterplay.
+    if (resolution.success || resolution.detected) {
+      const who = resolution.detected ? me.name : 'An unidentified nation';
+      const what = resolution.success
+        ? (outcome.kind === 'reveal'
+            ? 'gathered intelligence on you'
+            : outcome.destroyed > 0
+              ? `destroyed ${outcome.destroyed} of your ${outcome.target}`
+              : `attempted sabotage and found nothing to destroy`)
+        : 'attempted an operation against you and failed';
+      await repo.recordEvents(tx, Number(targetId), [{
+        turn: gs.turn, type: 'espionage_against_you',
+        message: `${who} ${what}.`,
+        detected: resolution.detected,
+      }]);
+    }
+
+    return {
+      ok: true,
+      operation,
+      safetyLevel,
+      odds: resolution.odds,
+      success: resolution.success,
+      detected: resolution.detected,
+      spiesLost: resolution.spiesLost,
+      spiesRemaining: me.spies,
+      operationsToday: opsToday + 1,
+      operationsPerDay: C.ESPIONAGE.DAILY_OPERATIONS,
+      seed,
+      outcome,
+    };
+  });
+}
+
+/** Operations you ran, and operations run against you. */
+async function getEspionageLog(nationId, limit = 40) {
+  const { rows } = await db.query(
+    `SELECT e.*, a.name AS attacker_name, d.name AS defender_name
+       FROM espionage_ops e
+       JOIN nations a ON a.id = e.attacker_id
+       JOIN nations d ON d.id = e.defender_id
+      WHERE e.attacker_id = $1 OR e.defender_id = $1
+      ORDER BY e.turn DESC, e.id DESC
+      LIMIT $2`,
+    [nationId, Math.min(limit, 200)]
+  );
+
+  return {
+    operations: rows.map(r => {
+      const mine = Number(r.attacker_id) === Number(nationId);
+      return {
+        id: Number(r.id),
+        turn: Number(r.turn),
+        operation: r.operation,
+        safetyLevel: Number(r.safety_level),
+        success: r.success,
+        detected: r.detected,
+        odds: db.num(r.odds),
+        yoursToRun: mine,
+        // If they were not detected you are not told who they were, even in the
+        // log. Otherwise safety level buys nothing.
+        other: mine ? r.defender_name : (r.detected ? r.attacker_name : null),
+        spiesLost: mine ? Number(r.spies_lost) : 0,
+        result: mine ? r.result : (r.success ? r.result : {}),
+      };
+    }),
+  };
+}
+
 module.exports = {
   GameError,
   getSnapshot,
@@ -1534,4 +1840,8 @@ module.exports = {
   attack,
   fortify,
   getWars,
+  getEspionage,
+  trainSpies,
+  runEspionage,
+  getEspionageLog,
 };

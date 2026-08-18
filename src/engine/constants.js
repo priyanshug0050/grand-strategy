@@ -651,6 +651,59 @@ const ESPIONAGE = {
   MAX_SPIES: 50,                                // PLACEHOLDER
   MAX_SPIES_WITH_AGENCY: 60,                    // PLACEHOLDER
   DAILY_OPERATIONS: 2,                          // PLACEHOLDER
+
+  // --- Training --------------------------------------------------------
+  // Money only. Spies are people, not equipment, so making them cost steel
+  // would tie the intelligence game to the industrial one for no reason —
+  // and it would lock a bombed-out nation out of espionage entirely, which
+  // is the one thing it can still afford to do.
+  //
+  // The daily cap, not the price, is the real constraint. A full roster takes
+  // weeks to build, so losing spies to a botched operation genuinely hurts and
+  // "just buy more" is never an answer.
+  SPY_COST: { money: 50000 },                   // DESIGN
+  SPY_TRAINING_PER_DAY: 2,                      // DESIGN
+  SPY_TRAINING_PER_DAY_WITH_AGENCY: 3,          // DESIGN
+
+  // --- What a successful operation actually does -----------------------
+  // resolveEspionage() decides IF an operation lands. This decides what
+  // landing means. Fractions are of the target's current holding, rolled
+  // between min and max so the same operation is not always worth the same.
+  //
+  // Deliberately small. Espionage is attrition and information, not a
+  // substitute for war: sabotage should make a war easier to win, never win
+  // one on its own.
+  OPERATION_EFFECT: {
+    gather_intelligence: { kind: 'reveal' },                                       // VERIFIED shape
+    assassinate_spies:   { kind: 'destroy', target: 'spies',    min: 0.20, max: 0.40, minCount: 1 }, // PLACEHOLDER
+    sabotage_tanks:      { kind: 'destroy', target: 'tanks',    min: 0.05, max: 0.08 },              // PLACEHOLDER
+    sabotage_aircraft:   { kind: 'destroy', target: 'aircraft', min: 0.05, max: 0.08 },              // PLACEHOLDER
+    sabotage_ships:      { kind: 'destroy', target: 'ships',    min: 0.05, max: 0.08 },              // PLACEHOLDER
+    sabotage_missile:    { kind: 'destroy', target: 'missiles', flat: 1 },                           // PLACEHOLDER
+    sabotage_nuke:       { kind: 'destroy', target: 'nukes',    flat: 1 },                           // PLACEHOLDER
+  },
+
+  // Player-facing wording, kept next to the numbers so the page, the wiki and
+  // the operation log cannot describe the same operation three ways.
+  OPERATION_INFO: {
+    gather_intelligence: { name: 'Gather Intelligence', summary: 'Read their army, stockpile and spy count. Destroys nothing.' },
+    assassinate_spies:   { name: 'Assassinate Spies',   summary: 'Kill part of their intelligence service. The cheapest way to open a target up.' },
+    sabotage_tanks:      { name: 'Sabotage Tanks',      summary: 'Destroy a slice of their armour before a ground battle.' },
+    sabotage_aircraft:   { name: 'Sabotage Aircraft',   summary: 'Destroy a slice of their air force.' },
+    sabotage_ships:      { name: 'Sabotage Ships',      summary: 'Destroy a slice of their navy. Hard — ships are well guarded.' },
+    sabotage_missile:    { name: 'Sabotage Missile',    summary: 'Destroy one missile. Very hard.' },
+    sabotage_nuke:       { name: 'Sabotage Nuke',       summary: 'Destroy one nuclear weapon. The hardest operation in the game.' },
+  },
+
+  SAFETY_INFO: {
+    quick_and_dirty:    { name: 'Quick and dirty',    summary: 'Worst odds, most likely to be traced back to you.' },
+    normal_precautions: { name: 'Normal precautions', summary: 'The middle option.' },
+    extremely_covert:   { name: 'Extremely covert',   summary: 'Best odds and least likely to be identified.' },
+  },
+
+  // Beige protects against espionage as well as war declarations. A new nation
+  // that cannot retaliate should not be farmed for intelligence either.
+  BEIGE_BLOCKS_ESPIONAGE: true,                 // DESIGN
 };
 
 // ============================================================================

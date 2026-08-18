@@ -124,6 +124,12 @@ const API = (() => {
     cancelOrder: (orderId) => request(`/api/market/order/${orderId}`, { method: 'DELETE' }),
 
     projects: () => request('/api/projects'),
+
+    espionage:    (targetId) => request('/api/espionage' + (targetId ? `?targetId=${targetId}` : '')),
+    trainSpies:   (count) => request('/api/espionage/train', { method: 'POST', body: { count } }),
+    runEspionage: (targetId, operation, safetyLevel) =>
+      request('/api/espionage/run', { method: 'POST', body: { targetId, operation, safetyLevel } }),
+    espionageLog: (limit = 40) => request(`/api/espionage/log?limit=${limit}`),
     buildProject: (project) => request('/api/project', { method: 'POST', body: { project } }),
     policies: () => request('/api/policy'),
     previewPolicy: (slot, policy) =>

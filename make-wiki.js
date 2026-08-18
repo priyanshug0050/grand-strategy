@@ -826,9 +826,29 @@ ${formula(
 finalOdds = odds / operationModifier`)}
 ${table(['Operation', 'Difficulty'], espRows)}
 <p>The <strong>&times;${C.ESPIONAGE.ENEMY_SPY_MULTIPLIER} weighting on enemy spies</strong> is the whole design. Defence is roughly three times cheaper than offence, so a nation that keeps a modest spy count is very hard to operate against — and ignoring spies entirely is an open invitation.</p>
-${table(['Safety level', 'Odds bonus'], Object.entries(C.ESPIONAGE.SAFETY_LEVELS).map(([k, v]) =>
-  [label(k), '+' + v * C.ESPIONAGE.SAFETY_MULTIPLIER + '%']))}
-<p>Espionage results are seeded and stored the same way battles are.</p>
+${table(['Safety level', 'Odds bonus', 'What it buys'], Object.entries(C.ESPIONAGE.SAFETY_LEVELS).map(([k, v]) =>
+  [C.ESPIONAGE.SAFETY_INFO[k]?.name || label(k),
+   '+' + v * C.ESPIONAGE.SAFETY_MULTIPLIER + '%',
+   C.ESPIONAGE.SAFETY_INFO[k]?.summary || '']))}
+<p>Safety does two jobs at once: better odds, and a lower chance of being identified. A failed operation always costs you spies; a <em>detected</em> one also tells the target exactly who tried it.</p>
+
+<h3>Spies</h3>
+<p>Spies cost <strong>${money(C.ESPIONAGE.SPY_COST.money)}</strong> each, money only. You may hold <strong>${C.ESPIONAGE.MAX_SPIES}</strong> (<strong>${C.ESPIONAGE.MAX_SPIES_WITH_AGENCY}</strong> with the Intelligence Agency project) and train <strong>${C.ESPIONAGE.SPY_TRAINING_PER_DAY} per day</strong> (<strong>${C.ESPIONAGE.SPY_TRAINING_PER_DAY_WITH_AGENCY}</strong> with the project).</p>
+${note('The daily cap is the real constraint, not the price', 'A full service takes weeks to build regardless of how rich you are. That is deliberate — if a wiped intelligence service could be rebuilt in an afternoon, losing spies would cost nothing and the whole system would collapse into a money sink.')}
+<p>Spies cost money and nothing else. Making them cost steel would tie the intelligence game to the industrial one for no reason, and would lock a bombed-out nation out of the one thing it can still afford to do.</p>
+
+<h3>What a successful operation does</h3>
+${table(['Operation', 'Difficulty', 'On success'], Object.entries(C.ESPIONAGE.OPERATION_EFFECT).map(([k, e]) => {
+  const info = C.ESPIONAGE.OPERATION_INFO[k] || {};
+  const what = e.kind === 'reveal' ? 'Reveals their army, stockpile and spy count'
+    : e.flat !== undefined ? `Destroys ${e.flat} ${e.target}`
+    : `Destroys ${num(e.min * 100)}–${num(e.max * 100)}% of their ${e.target}` +
+      (e.minCount ? ` (at least ${e.minCount})` : '');
+  return [info.name || label(k), '&divide;' + num(C.ESPIONAGE.OPERATION_MODIFIER[k], 1), what];
+}))}
+<p>The magnitudes are deliberately small. Espionage is attrition and information — sabotage should make a war easier to win, never win one on its own.</p>
+<p>You may run <strong>${C.ESPIONAGE.DAILY_OPERATIONS} operations per day</strong>, against targets inside the same score range that governs war. Nations on beige cannot be targeted: a nation that cannot retaliate should not be farmed for intelligence either.</p>
+<p>Espionage results are seeded and stored the same way battles are, so a disputed result can be replayed rather than argued about.</p>
 `,
       },
     ],

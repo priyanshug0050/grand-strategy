@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Espionage — SOVRA</title>
+<link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/css/mobile.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">SOVRA</span>
+  <div class="clock" id="clock">
+    <span class="turn" id="clockTurn">Turn —</span>
+    <span class="until" id="clockUntil"></span>
+  </div>
+  <nav>
+    <a href="/dashboard.html">Situation</a>
+    <a href="/cities.html">Cities</a>
+    <a href="/economy.html">Economy</a>
+    <a href="/policy.html">Policy</a>
+    <a href="/market.html">Market</a>
+    <a href="/military.html">Military</a>
+    <a href="/espionage.html" aria-current="page">Espionage</a>
+    <a href="/projects.html">Projects</a>
+    <a href="/history.html">History</a>
+    <a href="/rankings.html">Rankings</a>
+    <a href="/wiki/">Wiki</a>
+    <a href="#" id="signOut">Sign out</a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <div style="margin-bottom:1.2rem;">
+    <p class="eyebrow">Clandestine</p>
+    <h1>Espionage</h1>
+    <p class="muted" style="font-size:.85rem; max-width:52rem; margin-top:.5rem; line-height:1.6;">
+      An opposed check between two intelligence services. Their spies count three times
+      as heavily as yours, so defence is cheap and ignoring it is an invitation.
+      <a href="/wiki/war.html#espionage">How the odds are calculated</a>
+    </p>
+  </div>
+
+  <div id="msg" class="msg hidden"></div>
+
+  <div class="grid" style="grid-template-columns:1fr 1fr; gap:var(--gap-l); align-items:start;" id="topGrid">
+
+    <section class="panel">
+      <header><h2>Your service</h2><span class="eyebrow" id="rosterNote"></span></header>
+      <div class="body"><div id="roster"></div></div>
+    </section>
+
+    <section class="panel">
+      <header><h2>Train spies</h2><span class="eyebrow" id="trainNote"></span></header>
+      <div class="body"><div id="train"></div></div>
+    </section>
+
+  </div>
+
+  <section class="panel" style="margin-top:var(--gap-l)">
+    <header><h2>Run an operation</h2><span class="eyebrow" id="opsNote"></span></header>
+    <div class="body">
+      <div class="row-controls" style="margin-bottom:.8rem;">
+        <label class="muted" style="font-size:.72rem;">
+          Target
+          <select id="target"><option value="">Choose a nation…</option></select>
+        </label>
+        <label class="muted" style="font-size:.72rem; margin-left:1rem;">
+          Safety
+          <select id="safety"></select>
+        </label>
+      </div>
+      <div id="operations"></div>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:var(--gap-l)">
+    <header><h2>Operation log</h2><span class="eyebrow" id="logNote"></span></header>
+    <div class="body"><div id="log"></div></div>
+  </section>
+
+</main>
+
+<script src="/js/api.js"></script>
+<script src="/js/espionage.js"></script>
+</body>
+</html>

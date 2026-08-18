@@ -7,6 +7,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "db:setup": "psql -U postgres -f db/schema.sql",
+    "doctor": "node doctor.js",
     "wiki": "node make-wiki.js",
     "test": "node tests/run-all.js",
     "test:engine": "node tests/test-city.js && node tests/test-population.js && node tests/test-economy.js && node tests/test-military.js && node tests/test-combat.js && node tests/test-tick.js",
